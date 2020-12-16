@@ -1,10 +1,12 @@
 import os
 import sys
 import pygame
+from queue import Queue
+from random import random, choice
 
 WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 600, 600
 TILE_SIZE = 40
-FPS = 15
+FPS = 10
 MAPS_DIR = "maps"
 
 # Control
@@ -331,7 +333,6 @@ class Game:
             tank.update_timers(self.clock)
             if tank.is_crashed:
                 continue
-
             cur_x, cur_y = next_x, next_y = tank.get_position()
             rotate_turret, rotate_hull = tank.get_rotate()
             direction_move = DIRECTION_MOVE_BY_ANGLE[rotate_hull]
@@ -368,11 +369,28 @@ class Game:
             if tank.is_crashed:
                 continue
 
-            cur_x, cur_y = tank.get_position()
-            rotate_turret, rotate_hull = tank.get_rotate()
-            direction_move = DIRECTION_MOVE_BY_ANGLE[rotate_hull]
+            path = []
+            destination = None
 
-            # TODO оптимизировать алгоритм поведения автономных танков ниже
+            # нахождение цели. В данном случае, это танк игрока
+            for y, row in enumerate(self.map.map):
+                for x, cell in enumerate(row):
+                    if isinstance(cell, Tank) and cell in self.controlled_tanks:
+                        destination = cell.get_position()
+                        path = self.find_path(tank.get_position(), destination)
+                        break
+
+            self.calculate_uncontrolled_tank_turret(tank)
+
+            # TODO дать танку-боту возможность пробивать пробиваемые стены, чтобы быстрее достичь своей цели.
+            if len(path) > 3 and destination != None:
+                self.calculate_uncontrolled_tank_move(path, destination, tank)
+
+    def calculate_uncontrolled_tank_turret(self, tank):
+        # Поскольку бот соображает слишком быстро, задержка через рандом должна снизить его скорость
+        if random() > 0.80:
+            cur_x, cur_y = tank.get_position()
+            rotate_turret = tank.get_rotate()[0]
             row_cells = self.map.map[cur_y].copy()
             for cell in reversed(row_cells[:cur_x]):  # 90
                 if cell == 1:
@@ -427,9 +445,105 @@ class Game:
                         tank.turn_turret_left()
                     return None
 
-            next_position = self.map.find_path_step(
-                (cur_x, cur_y), self.controlled_tanks[0].get_position())
-            next_x, next_y = next_position
+    def calculate_uncontrolled_tank_move(self, path, destination, tank):
+        cur_x, cur_y = next_x, next_y = tank.get_position()
+        rotate_hull = tank.get_rotate()[1]
+        # Поскольку бот соображает слишком быстро, задержка через рандом должна снизить его скорость
+        if random() > 0.80:
+            next_step = path[2]
+            direction_move = self.calculate_direction(tank.get_position(), next_step)
+            next_x += direction_move[0]
+            next_y += direction_move[1]
+            if direction_move == (0, 1):
+                if rotate_hull == 180:
+                    if tank.move_forward():
+                        self.map.map[cur_y][cur_x] = 0
+                        self.map.map[next_y][next_x] = tank
+                else:
+                    tank.turn_left()
+            if direction_move == (1, 0):
+                if rotate_hull == 270:
+                    if tank.move_forward():
+                        self.map.map[cur_y][cur_x] = 0
+                        self.map.map[next_y][next_x] = tank
+                else:
+                    tank.turn_right()
+            if direction_move == (0, -1):
+                if rotate_hull == 0:
+                    if tank.move_forward():
+                        self.map.map[cur_y][cur_x] = 0
+                        self.map.map[next_y][next_x] = tank
+                else:
+                    tank.turn_right()
+            if direction_move == (-1, 0):
+                if rotate_hull == 90:
+                    if tank.move_forward():
+                        self.map.map[cur_y][cur_x] = 0
+                        self.map.map[next_y][next_x] = tank
+                else:
+                    tank.turn_left()
+
+    def calculate_direction(self, this_step, next_step):
+        return tuple(next_step[i] - this_step[i] for i in range(len(this_step)))
+
+    def find_path(self, start, destination):
+        # создаем граф, используя соседние клетки
+        graph = {}
+        for y, row in enumerate(self.map.map):
+            for x, column in enumerate(row):
+                graph[(x, y)] = graph.get((x, y), []) + self.check_neighbour(x, y, start)
+
+        queue = Queue()
+        queue.put(start)
+        came_from = {}
+        came_from[start] = None
+
+        # для каждой клетки в очереди записывается клетка, из которой они пришли
+        while not queue.empty():
+            current_cell = queue.get()
+            cells = graph[current_cell]
+            for cell in cells:
+                # если графа нет в "откуда пришел", то добавляем ему точку, откуда он пришел, и кидаем в очередь
+                if not cell in came_from:
+                    queue.put(cell)
+                    came_from[cell] = current_cell
+        # идем обратно от конца до старта
+        current_cell = destination
+        path = [destination]
+        while current_cell != start:
+            # если у точки дислокации нет точки, откуда она пришла. Такое бывает, если старт окружают заборы
+            if current_cell not in came_from:
+                return
+            current_cell = came_from[current_cell]
+            path.append(current_cell)
+        path.append(start)
+        path.reverse()
+
+        return path
+
+    def check_neighbour(self, x, y, pathfinder_coords):
+        cells_list = [(x, y)]
+        is_next_neighbor = lambda p1, p2: True if all([(0 <= p2 < len(self.map.map)),
+                                                       (0 <= p1 < len(self.map.map[0]))]) else False
+        while True:
+            cells_list_copy = cells_list.copy()
+            cells_list = []
+            for coords in cells_list_copy:
+                x, y = coords
+                if is_next_neighbor(*coords):
+                    for y_step in (y - 1, y, y + 1):
+                        if y_step == y:
+                            x_list = (x - 1, x + 1)
+                        else:
+                            x_list = (x, x)
+                        for x_step in x_list:
+                            if is_next_neighbor(x_step, y_step):
+                                neighbour_cell = self.map.map[y_step][x_step]
+                                if (self.map.is_free((x_step, y_step)) or
+                                    (isinstance(neighbour_cell, Tank) and neighbour_cell in self.controlled_tanks))\
+                                        and (x_step, y_step) != pathfinder_coords:
+                                    cells_list.append((x_step, y_step))
+            return cells_list
 
 
 def show_message(screen, message):
@@ -487,6 +601,7 @@ def main():
     clock = pygame.time.Clock()
     game = init_test_scene(clock)
     running = True
+
     while running:
         # Цикл приема и обработки сообщений:
         for event in pygame.event.get():
