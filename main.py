@@ -296,13 +296,15 @@ class Bullet(pygame.sprite.Sprite):
 
 class Game:
     def __init__(self, map, controlled_tanks, uncontrolled_tanks,
-                 bullets, clock, sprites_group=[]):
+                 bullets, clock, destinations, sprites_group=[]):
         self.map = map
         self.clock = clock
 
         self.sprites_group = sprites_group
         self.controlled_tanks = controlled_tanks
         self.uncontrolled_tanks = uncontrolled_tanks
+
+        self.destinations = destinations
 
         self.bullets = bullets
 
@@ -327,6 +329,8 @@ class Game:
                         tank.clear_the_tank()
                     else:
                         tank.destroy_the_tank()
+                elif self.map.map[bullet_y][bullet_x] not in [0, 9]:
+                    self.map.map[bullet_y][bullet_x] -= 1
 
     def update_controlled_tanks(self):
         for tank in self.controlled_tanks:
@@ -370,15 +374,19 @@ class Game:
                 continue
 
             path = []
-            destination = None
+            destination = self.destinations[tank]
+            # Для динамических целей, которые требуют обновления данных о себе
+            if callable(destination):
+                destination = destination()
 
             # нахождение цели. В данном случае, это танк игрока
             for y, row in enumerate(self.map.map):
                 for x, cell in enumerate(row):
                     if isinstance(cell, Tank) and cell in self.controlled_tanks:
-                        destination = cell.get_position()
-                        path = self.find_path(tank.get_position(), destination)
+                        # destination = cell.get_position()
+                        path, status = self.find_path(tank.get_position(), destination)
                         break
+            print(path)
 
             self.calculate_uncontrolled_tank_turret(tank)
 
@@ -487,6 +495,7 @@ class Game:
         return tuple(next_step[i] - this_step[i] for i in range(len(this_step)))
 
     def find_path(self, start, destination):
+        status = 'full'
         # создаем граф, используя соседние клетки
         graph = {}
         for y, row in enumerate(self.map.map):
@@ -504,7 +513,7 @@ class Game:
             cells = graph[current_cell]
             for cell in cells:
                 # если графа нет в "откуда пришел", то добавляем ему точку, откуда он пришел, и кидаем в очередь
-                if not cell in came_from:
+                if cell not in came_from:
                     queue.put(cell)
                     came_from[cell] = current_cell
         # идем обратно от конца до старта
@@ -513,13 +522,17 @@ class Game:
         while current_cell != start:
             # если у точки дислокации нет точки, откуда она пришла. Такое бывает, если старт окружают заборы
             if current_cell not in came_from:
-                return
+                status = 'incomplete'
+                segment_of_broken_path = -1
+                while current_cell not in came_from:
+                    current_cell = list(came_from.keys())[segment_of_broken_path]
+
             current_cell = came_from[current_cell]
             path.append(current_cell)
         path.append(start)
         path.reverse()
 
-        return path
+        return path, status
 
     def check_neighbour(self, x, y, pathfinder_coords):
         cells_list = [(x, y)]
@@ -573,9 +586,11 @@ def init_test_scene(clock):
         "block_1.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
     bullet_0 = pygame.transform.scale(load_image(
         "bullet_0.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+    block_unbreak = pygame.transform.scale(load_image(
+        "block_unbreak.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 
     # Формирование кадра(команды рисования на холсте):ww
-    main_map = Map("simple_map.txt", [0], {1: block_1})
+    main_map = Map("simple_map.txt", [0], {9: block_unbreak, 1: block_1})
     all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
     controlled_tanks = [
@@ -587,9 +602,11 @@ def init_test_scene(clock):
              rotate_turret=0, rotate_hull=0, group=all_sprites)]
 
     bullets = []
+    # Цели, которые по-разному раздаются танкам-ботам
+    destinations = dict((tank, lambda: controlled_tanks[0].get_position()) for tank in uncontrolled_tanks)
 
     return Game(main_map, controlled_tanks, uncontrolled_tanks,
-                bullets, clock, sprites_group=[all_sprites])
+                bullets, clock, destinations, sprites_group=[all_sprites])
 
 
 def main():
