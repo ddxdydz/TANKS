@@ -3,10 +3,11 @@ import sys
 import pygame
 from queue import Queue
 from random import random, choice
+import pytmx
 
 WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 600, 600
 TILE_SIZE = 40
-FPS = 10
+FPS = 15
 MAPS_DIR = "maps"
 
 # Control
@@ -61,30 +62,31 @@ def load_image(name, colorkey=None):
 
 
 class Map:
-    def __init__(self, filename, free_tiles, image_tiles_dict):
+    def __init__(self, filename):
         self.map = []
-        with open(f"{MAPS_DIR}/{filename}") as input_file:
-            for line in input_file:
-                self.map.append(list(map(int, list(line.strip()))))
+        self.tiled_map = TiledMap(filename)
+        for y in range(self.tiled_map.tmx_data.height):
+            self.map.append([self.tiled_map.get_tile_id(x, y) for x in range(self.tiled_map.tmx_data.width)])
+
         self.height = len(self.map)
         self.width = len(self.map[0])
         self.tile_size = TILE_SIZE
-        self.free_tiles = free_tiles
 
-        self.image_tiles_dict = image_tiles_dict
-
-    def render(self, screen):
-        screen.fill((59, 122, 87))
-        map_sprites = pygame.sprite.Group()
+        # Инициализация разрушаемых/неразрушаемых/свободных и других блоков через TiledMap
+        check_prop = self.tiled_map.tmx_data.get_tile_properties
+        self.free_tiles = []
+        self.break_tiles = []
         for y in range(self.height):
             for x in range(self.width):
-                if self.get_tile_id((x, y)) in self.image_tiles_dict.keys():
-                    sprite = pygame.sprite.Sprite(map_sprites)
-                    sprite.image = self.image_tiles_dict[self.get_tile_id((x, y))]
-                    sprite.rect = sprite.image.get_rect()
-                    sprite.rect.x = x * self.tile_size
-                    sprite.rect.y = y * self.tile_size
-        map_sprites.draw(screen)
+                type_of_tile = check_prop(x, y, 0)['type']
+                id_of_tyle = check_prop(x, y, 0)['id'] + 1
+                if type_of_tile == 'free' and id_of_tyle not in self.free_tiles:
+                    self.free_tiles.append(id_of_tyle)
+                elif type_of_tile == 'break' and id_of_tyle not in self.break_tiles:
+                    self.break_tiles.append(id_of_tyle)
+
+    def render(self, screen):
+        self.tiled_map.render(screen)
 
     def get_tile_id(self, position):
         return self.map[position[1]][position[0]]
@@ -92,28 +94,30 @@ class Map:
     def is_free(self, position):
         return self.get_tile_id(position) in self.free_tiles
 
-    def find_path_step(self, start, target):
-        INF = 1000
-        x, y = start
-        distance = [[INF] * self.width for _ in range(self.height)]
-        distance[y][x] = 0
-        prev = [[None] * self.width for _ in range(self.height)]
-        queue = [(x, y)]
-        while queue:
-            x, y = queue.pop(0)
-            for dx, dy in (1, 0), (0, 1), (-1, 0), (0, -1):
-                next_x, next_y = x + dx, y + dy
-                if 0 <= next_x < self.width and 0 < next_y < self.height and \
-                        self.is_free((next_x, next_y)) and distance[next_y][next_x] == INF:
-                    distance[next_y][next_x] = distance[y][x] + 1
-                    prev[next_y][next_x] = (x, y)
-                    queue.append((next_x, next_y))
-        x, y = target
-        if distance[y][x] == INF or start == target:
-            return start
-        while prev[y][x] != start:
-            x, y = prev[y][x]
-        return x, y
+
+class TiledMap:
+    def __init__(self, filename):
+        tm = pytmx.load_pygame(f"{MAPS_DIR}/{filename}")
+        self.width = tm.width * tm.tilewidth
+        self.height = tm.height * tm.tileheight
+        self.tmx_data = tm
+
+    def render(self, surface):
+        ti = self.tmx_data.get_tile_image_by_gid
+        for layer in self.tmx_data.visible_layers:
+            if isinstance(layer, pytmx.TiledTileLayer):
+                for x, y, gid in layer:
+                    tile = ti(gid)
+                    if tile:
+                        surface.blit(tile, (x * self.tmx_data.tilewidth, y * self.tmx_data.tileheight))
+
+    def get_tile_id(self, x, y):
+        return self.tmx_data.tiledgidmap[self.tmx_data.get_tile_gid(x, y, 0)]
+
+    def make_map(self):
+        temp_surface = pygame.Surface((self.width, self.height))
+        self.render(temp_surface)
+        return temp_surface
 
 
 class Tank(pygame.sprite.Sprite):
@@ -329,14 +333,15 @@ class Game:
                         tank.clear_the_tank()
                     else:
                         tank.destroy_the_tank()
-                elif self.map.map[bullet_y][bullet_x] not in [0, 9]:
-                    self.map.map[bullet_y][bullet_x] -= 1
+                elif self.map.map[bullet_y][bullet_x] in self.map.break_tiles:
+                    self.map.map[bullet_y][bullet_x] = self.map.free_tiles[0]
 
     def update_controlled_tanks(self):
         for tank in self.controlled_tanks:
             tank.update_timers(self.clock)
             if tank.is_crashed:
                 continue
+
             cur_x, cur_y = next_x, next_y = tank.get_position()
             rotate_turret, rotate_hull = tank.get_rotate()
             direction_move = DIRECTION_MOVE_BY_ANGLE[rotate_hull]
@@ -347,14 +352,14 @@ class Game:
                 next_y += direction_move[1]
                 if self.map.is_free((next_x, next_y)):
                     if tank.move_forward():
-                        self.map.map[cur_y][cur_x] = 0
+                        self.map.map[cur_y][cur_x] = self.map.free_tiles[0]
                         self.map.map[next_y][next_x] = tank
             if pygame.key.get_pressed()[tank.control_keys[BACK]]:
                 next_x -= direction_move[0]
                 next_y -= direction_move[1]
                 if self.map.is_free((next_x, next_y)):
                     if tank.move_back():
-                        self.map.map[cur_y][cur_x] = 0
+                        self.map.map[cur_y][cur_x] = self.map.free_tiles[0]
                         self.map.map[next_y][next_x] = tank
             if pygame.key.get_pressed()[tank.control_keys[TURN_RIGHT]]:
                 tank.turn_right()
@@ -582,15 +587,11 @@ def init_test_scene(clock):
         "red_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
     crash_tank = pygame.transform.scale(load_image(
         "crached_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-    block_1 = pygame.transform.scale(load_image(
-        "block_1.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
     bullet_0 = pygame.transform.scale(load_image(
         "bullet_0.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-    block_unbreak = pygame.transform.scale(load_image(
-        "block_unbreak.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 
-    # Формирование кадра(команды рисования на холсте):ww
-    main_map = Map("simple_map.txt", [0], {9: block_unbreak, 1: block_1})
+    # Формирование кадра(команды рисования на холсте):
+    main_map = Map("1_lvl.tmx")
     all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
     controlled_tanks = [
@@ -618,7 +619,6 @@ def main():
     clock = pygame.time.Clock()
     game = init_test_scene(clock)
     running = True
-
     while running:
         # Цикл приема и обработки сообщений:
         for event in pygame.event.get():
