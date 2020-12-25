@@ -79,14 +79,24 @@ class Map:
         for y in range(self.height):
             for x in range(self.width):
                 type_of_tile = check_prop(x, y, 0)['type']
-                id_of_tyle = check_prop(x, y, 0)['id'] + 1
+                id_of_tyle = self.tiled_map.get_tile_id(x, y)
                 if type_of_tile == 'free' and id_of_tyle not in self.free_tiles:
                     self.free_tiles.append(id_of_tyle)
                 elif type_of_tile == 'break' and id_of_tyle not in self.break_tiles:
                     self.break_tiles.append(id_of_tyle)
 
     def render(self, screen):
-        self.tiled_map.render(screen)
+        ti = self.tiled_map.tmx_data.get_tile_image_by_gid
+        for layer in self.tiled_map.tmx_data.visible_layers:
+            if isinstance(layer, pytmx.TiledTileLayer):
+                for x, y, gid in layer:
+                    gid = self.map[y][x]
+                    if not isinstance(gid, int):
+                        gid = self.free_tiles[0]
+
+                    tile = ti(gid)
+                    if tile:
+                        screen.blit(tile, (x * self.tiled_map.tmx_data.tilewidth, y * self.tiled_map.tmx_data.tileheight))
 
     def get_tile_id(self, position):
         return self.map[position[1]][position[0]]
@@ -103,6 +113,7 @@ class TiledMap:
         self.tmx_data = tm
 
     def render(self, surface):
+        self.tmx_data.reload_images()
         ti = self.tmx_data.get_tile_image_by_gid
         for layer in self.tmx_data.visible_layers:
             if isinstance(layer, pytmx.TiledTileLayer):
@@ -112,7 +123,7 @@ class TiledMap:
                         surface.blit(tile, (x * self.tmx_data.tilewidth, y * self.tmx_data.tileheight))
 
     def get_tile_id(self, x, y):
-        return self.tmx_data.tiledgidmap[self.tmx_data.get_tile_gid(x, y, 0)]
+        return int(self.tmx_data.get_tile_gid(x, y, 0))
 
     def make_map(self):
         temp_surface = pygame.Surface((self.width, self.height))
@@ -329,7 +340,7 @@ class Game:
                 if isinstance(self.map.map[bullet_y][bullet_x], Tank):
                     tank = self.map.map[bullet_y][bullet_x]
                     if tank.is_crashed:
-                        self.map.map[bullet_y][bullet_x] = 0
+                        self.map.map[bullet_y][bullet_x] = self.map.free_tiles[0]
                         tank.clear_the_tank()
                     else:
                         tank.destroy_the_tank()
@@ -391,7 +402,7 @@ class Game:
                         # destination = cell.get_position()
                         path, status = self.find_path(tank.get_position(), destination)
                         break
-            print(path)
+            # print(path)
 
             self.calculate_uncontrolled_tank_turret(tank)
 
@@ -470,28 +481,28 @@ class Game:
             if direction_move == (0, 1):
                 if rotate_hull == 180:
                     if tank.move_forward():
-                        self.map.map[cur_y][cur_x] = 0
+                        self.map.map[cur_y][cur_x] = self.map.free_tiles[0]
                         self.map.map[next_y][next_x] = tank
                 else:
                     tank.turn_left()
             if direction_move == (1, 0):
                 if rotate_hull == 270:
                     if tank.move_forward():
-                        self.map.map[cur_y][cur_x] = 0
+                        self.map.map[cur_y][cur_x] = self.map.free_tiles[0]
                         self.map.map[next_y][next_x] = tank
                 else:
                     tank.turn_right()
             if direction_move == (0, -1):
                 if rotate_hull == 0:
                     if tank.move_forward():
-                        self.map.map[cur_y][cur_x] = 0
+                        self.map.map[cur_y][cur_x] = self.map.free_tiles[0]
                         self.map.map[next_y][next_x] = tank
                 else:
                     tank.turn_right()
             if direction_move == (-1, 0):
                 if rotate_hull == 90:
                     if tank.move_forward():
-                        self.map.map[cur_y][cur_x] = 0
+                        self.map.map[cur_y][cur_x] = self.map.free_tiles[0]
                         self.map.map[next_y][next_x] = tank
                 else:
                     tank.turn_left()
@@ -600,7 +611,7 @@ def init_test_scene(clock):
              control_keys=CONTROL_KEYS_V1)]
     uncontrolled_tanks = [
         Tank((7, 7), red_tank_turret, red_tank_hull, crash_tank, {0: bullet_0},
-             rotate_turret=0, rotate_hull=0, group=all_sprites)]
+             rotate_turret=0, rotate_hull=180, group=all_sprites)]
 
     bullets = []
     # Цели, которые по-разному раздаются танкам-ботам
@@ -618,6 +629,7 @@ def main():
     # Главный игровой цикл:
     clock = pygame.time.Clock()
     game = init_test_scene(clock)
+
     running = True
     while running:
         # Цикл приема и обработки сообщений:
@@ -627,10 +639,10 @@ def main():
             # обработка остальных событий
             # ...
 
+        game.render(screen)
+
         game.update_controlled_tanks()
         game.update_uncontrolled_tanks()
-
-        game.render(screen)
 
         pygame.display.flip()
         clock.tick(FPS)
