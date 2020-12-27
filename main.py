@@ -9,6 +9,7 @@ WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 600, 600
 TILE_SIZE = 40
 FPS = 15
 MAPS_DIR = "maps"
+player_coords = (0, 0)
 
 # Control
 FORWARD = 91
@@ -43,6 +44,10 @@ CONTROL_KEYS_V4 = \
 DIRECTION_MOVE_BY_ANGLE = {0: (0, -1), 90: (-1, 0), 180: (0, 1), 270: (1, 0)}
 
 
+def get_player_coords():
+    return player_coords
+
+
 def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
 
@@ -72,6 +77,8 @@ class Map:
         self.width = len(self.map[0])
         self.tile_size = TILE_SIZE
 
+        self.camera = Camera(self.width, self.height)
+
         # Инициализация разрушаемых/неразрушаемых/свободных и других блоков через TiledMap
         check_prop = self.tiled_map.tmx_data.get_tile_properties
         self.free_tiles = []
@@ -86,23 +93,57 @@ class Map:
                     self.break_tiles.append(id_of_tyle)
 
     def render(self, screen):
+        screen.fill('#000000')
         ti = self.tiled_map.tmx_data.get_tile_image_by_gid
         for layer in self.tiled_map.tmx_data.visible_layers:
             if isinstance(layer, pytmx.TiledTileLayer):
                 for x, y, gid in layer:
                     gid = self.map[y][x]
+                    tank_stand_on = False
+                    # Если на блоке стоит танк, то блок под ним отрисовывается первым свободным из списка
                     if not isinstance(gid, int):
                         gid = self.free_tiles[0]
+                        tank_stand_on = True
 
                     tile = ti(gid)
                     if tile:
-                        screen.blit(tile, (x * self.tiled_map.tmx_data.tilewidth, y * self.tiled_map.tmx_data.tileheight))
+                        tile_rect = pygame.Rect(0, 0, x * self.tiled_map.tmx_data.tilewidth,
+                                                y * self.tiled_map.tmx_data.tileheight)
+                        self.camera.apply(tile_rect)
+                        screen.blit(tile, (tile_rect.width, tile_rect.height))
+                        if tank_stand_on:
+                            screen.blit(self.map[y][x].image, (tile_rect.width, tile_rect.height))
+                            screen.blit(self.map[y][x].tank_turret.image, (tile_rect.width, tile_rect.height))
 
     def get_tile_id(self, position):
         return self.map[position[1]][position[0]]
 
     def is_free(self, position):
         return self.get_tile_id(position) in self.free_tiles
+
+    def find_player(self):
+        for y in range(self.height):
+            for x in range(self.width):
+                if self.map[y][x].__repr__() == 'Player':
+                    return x, y
+
+    def give_tanks_list_and_destinations(self, tank_turret, tank_hull, crash_tank, bullet, sprite_group):
+        destinations = dict()
+        tank_list = []
+        for tile_object in self.tiled_map.tmx_data.objects:
+            if 'Tank' in tile_object.name:
+                rotate_turret, rotate_hull = tile_object.properties['rotate_turret'],\
+                                             tile_object.properties['rotate_hull']
+                destination = tile_object.properties['destination']
+                x, y = int(tile_object.x // TILE_SIZE), int(tile_object.y // TILE_SIZE)
+                tank_list.append(Tank((x, y), tank_turret, tank_hull, crash_tank, bullet,
+                                      rotate_turret=rotate_turret, rotate_hull=rotate_hull, group=sprite_group))
+                if destination == 'self':
+                    destinations[tank_list[-1]] = (x, y)
+                elif destination == 'player':
+                    destinations[tank_list[-1]] = get_player_coords
+
+        return tank_list, destinations
 
 
 class TiledMap:
@@ -133,8 +174,10 @@ class TiledMap:
 
 class Tank(pygame.sprite.Sprite):
     def __init__(self, position, image_turret, image_hull, crash_tank_image_turret, dict_id_bullets,
-                 rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1, group=None):
+                 rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1, group=None, is_player=False):
         super().__init__()
+
+        self.is_player = is_player
 
         self.crash_tank_image_turret = crash_tank_image_turret
         self.dict_id_bullets = dict_id_bullets
@@ -275,6 +318,12 @@ class Tank(pygame.sprite.Sprite):
         self.group.remove(self)
         self.group.remove(self.tank_turret)
 
+    def __repr__(self):
+        if self.is_player:
+            return 'Player'
+        else:
+            return 'Tank'
+
 
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, position, rotate, image):
@@ -321,21 +370,24 @@ class Game:
 
         self.destinations = destinations
 
+        self.camera = self.map.camera
+
         self.bullets = bullets
 
     def render(self, screen):
+        self.map.camera = self.camera
         self.map.render(screen)
         self.update_bullets(screen)
-        for group in self.sprites_group:
-            group.draw(screen)
+
+        for bullet in self.bullets:
+            self.camera.apply(bullet)
+            bullet.render(screen)
 
     def update_bullets(self, screen):
         for bullet in self.bullets:
             bullet.next_move()
             bullet_x, bullet_y = bullet.get_position()
-            if self.map.is_free((bullet_x, bullet_y)):
-                bullet.render(screen)
-            else:
+            if not self.map.is_free((bullet_x, bullet_y)):
                 del self.bullets[self.bullets.index(bullet)]
                 if isinstance(self.map.map[bullet_y][bullet_x], Tank):
                     tank = self.map.map[bullet_y][bullet_x]
@@ -352,8 +404,13 @@ class Game:
             tank.update_timers(self.clock)
             if tank.is_crashed:
                 continue
+            # cur_x, cur_y = next_x, next_y = tank.get_position()
+            unpack_player_coords = self.map.find_player()
+            if not unpack_player_coords:
+                cur_x, cur_y = next_x, next_y = tank.get_position()
+            else:
+                cur_x, cur_y = next_x, next_y = unpack_player_coords
 
-            cur_x, cur_y = next_x, next_y = tank.get_position()
             rotate_turret, rotate_hull = tank.get_rotate()
             direction_move = DIRECTION_MOVE_BY_ANGLE[rotate_hull]
             self.map.map[cur_y][cur_x] = tank
@@ -383,30 +440,28 @@ class Game:
             elif pygame.key.get_pressed()[tank.control_keys[SHOOT]]:
                 tank.shoot(self.bullets)
 
+            self.camera.update(tank)
+            self.camera.apply(tank)
+            self.map.camera = self.camera
+            global player_coords
+            player_coords = tank.get_position()
+
     def update_uncontrolled_tanks(self):
         for tank in self.uncontrolled_tanks:
             tank.update_timers(self.clock)
             if tank.is_crashed:
                 continue
 
-            path = []
             destination = self.destinations[tank]
             # Для динамических целей, которые требуют обновления данных о себе
             if callable(destination):
                 destination = destination()
-
-            # нахождение цели. В данном случае, это танк игрока
-            for y, row in enumerate(self.map.map):
-                for x, cell in enumerate(row):
-                    if isinstance(cell, Tank) and cell in self.controlled_tanks:
-                        # destination = cell.get_position()
-                        path, status = self.find_path(tank.get_position(), destination)
-                        break
+            # нахождение цели
+            path, status = self.find_path(tank.get_position(), destination)
             # print(path)
 
             self.calculate_uncontrolled_tank_turret(tank)
 
-            # TODO дать танку-боту возможность пробивать пробиваемые стены, чтобы быстрее достичь своей цели.
             if len(path) > 3 and destination != None:
                 self.calculate_uncontrolled_tank_move(path, destination, tank)
 
@@ -506,11 +561,15 @@ class Game:
                         self.map.map[next_y][next_x] = tank
                 else:
                     tank.turn_left()
+        else:
+            self.map.map[next_y][next_x] = tank
 
     def calculate_direction(self, this_step, next_step):
         return tuple(next_step[i] - this_step[i] for i in range(len(this_step)))
 
     def find_path(self, start, destination):
+        if start == destination:
+            return [start, start, start, start], 'complete'
         status = 'full'
         # создаем граф, используя соседние клетки
         graph = {}
@@ -542,12 +601,12 @@ class Game:
                 segment_of_broken_path = -1
                 while current_cell not in came_from:
                     current_cell = list(came_from.keys())[segment_of_broken_path]
+                    segment_of_broken_path -= 1
 
             current_cell = came_from[current_cell]
             path.append(current_cell)
         path.append(start)
         path.reverse()
-
         return path, status
 
     def check_neighbour(self, x, y, pathfinder_coords):
@@ -573,6 +632,45 @@ class Game:
                                         and (x_step, y_step) != pathfinder_coords:
                                     cells_list.append((x_step, y_step))
             return cells_list
+
+
+class Camera:
+    # зададим начальный сдвиг камеры
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+        self.rect = pygame.Rect(0, 0, self.width, self.height)
+
+    # сдвинуть объект obj на смещение камеры
+    def apply(self, obj):
+        if isinstance(obj, Bullet):
+            obj.rect.x += self.rect.left
+            obj.rect.y += self.rect.top
+        if isinstance(obj, Tank):
+            pass
+            # obj.rect.x += self.rect.left
+        elif isinstance(obj, pygame.Rect):
+            obj.width += self.rect.left
+            obj.height += self.rect.top
+            # obj.move(self.rect.topleft)
+
+    # позиционировать камеру на объекте target
+    def update(self, target):
+        # dx = -(target.rect.x + target.rect.w // 2 - self.width // 2)
+        dx = -(target.x * TILE_SIZE - (3 * TILE_SIZE))
+        dy = -(target.y * TILE_SIZE - (3 * TILE_SIZE))
+
+        # ограничения камеры, чтобы она не показала черных границы
+        if abs(dx) >= (self.width - 14) * TILE_SIZE:
+            dx = self.rect.x
+        if dx > 0:
+            dx = 0
+
+        if abs(dy) >= (self.height - 14) * TILE_SIZE:
+            dy = self.rect.y
+        if dy > 0:
+            dy = 0
+        self.rect = pygame.Rect(dx, dy, self.width, self.height)
 
 
 def show_message(screen, message):
@@ -609,13 +707,44 @@ def init_test_scene(clock):
         Tank((7, 1), green_tank_turret, green_tank_hull, crash_tank, {0: bullet_0},
              rotate_turret=0, rotate_hull=180, group=all_sprites,
              control_keys=CONTROL_KEYS_V1)]
-    uncontrolled_tanks = [
-        Tank((7, 7), red_tank_turret, red_tank_hull, crash_tank, {0: bullet_0},
-             rotate_turret=0, rotate_hull=180, group=all_sprites)]
 
     bullets = []
     # Цели, которые по-разному раздаются танкам-ботам
-    destinations = dict((tank, lambda: controlled_tanks[0].get_position()) for tank in uncontrolled_tanks)
+    uncontrolled_tanks, destinations = (main_map.give_tanks_list_and_destinations(red_tank_turret, red_tank_hull,
+                                                                                  crash_tank, {0: bullet_0},
+                                                                                  all_sprites))
+
+    return Game(main_map, controlled_tanks, uncontrolled_tanks,
+                bullets, clock, destinations, sprites_group=[all_sprites])
+
+
+def init_lvl2_scene(clock):
+    green_tank_turret = pygame.transform.scale(load_image(
+        "green_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+    green_tank_hull = pygame.transform.scale(load_image(
+        "green_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+    red_tank_turret = pygame.transform.scale(load_image(
+        "red_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+    red_tank_hull = pygame.transform.scale(load_image(
+        "red_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+    crash_tank = pygame.transform.scale(load_image(
+        "crached_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+    bullet_0 = pygame.transform.scale(load_image(
+        "bullet_0.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+
+    # Формирование кадра(команды рисования на холсте):
+    main_map = Map("2_lvl.tmx")
+    all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+
+    controlled_tanks = [
+        Tank((1, 1), green_tank_turret, green_tank_hull, crash_tank, {0: bullet_0},
+             rotate_turret=0, rotate_hull=180, group=all_sprites,
+             control_keys=CONTROL_KEYS_V1, is_player=True)]
+
+    uncontrolled_tanks, destinations = (main_map.give_tanks_list_and_destinations(red_tank_turret, red_tank_hull,
+                                   crash_tank, {0: bullet_0}, all_sprites))
+
+    bullets = []
 
     return Game(main_map, controlled_tanks, uncontrolled_tanks,
                 bullets, clock, destinations, sprites_group=[all_sprites])
@@ -628,7 +757,7 @@ def main():
 
     # Главный игровой цикл:
     clock = pygame.time.Clock()
-    game = init_test_scene(clock)
+    game = init_lvl2_scene(clock)
 
     running = True
     while running:

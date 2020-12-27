@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.4" tiledversion="1.4.3" orientation="orthogonal" renderorder="right-down" width="15" height="15" tilewidth="40" tileheight="40" infinite="0" nextlayerid="3" nextobjectid="3">
+<map version="1.4" tiledversion="1.4.3" orientation="orthogonal" renderorder="right-down" width="15" height="15" tilewidth="40" tileheight="40" infinite="0" nextlayerid="4" nextobjectid="4">
  <tileset firstgid="1" name="tiles_map" tilewidth="40" tileheight="40" tilecount="64" columns="8">
   <image source="tiles_map.png" width="320" height="320"/>
   <tile id="0" type="break"/>
@@ -27,4 +27,13 @@
 2,2,2,2,2,2,2,2,2,2,2,2,2,2,2
 </data>
  </layer>
+ <objectgroup id="3" name="Слой объектов 1">
+  <object id="3" name="Tank 1" x="280" y="280" width="40" height="40">
+   <properties>
+    <property name="destination" value="player"/>
+    <property name="rotate_hull" type="int" value="0"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+ </objectgroup>
 </map>
