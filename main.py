@@ -4,6 +4,7 @@ import pygame
 from queue import Queue
 from random import random, choice
 import pytmx
+from sprites import *
 
 WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 600, 600
 TILE_SIZE = 40
@@ -41,7 +42,7 @@ CONTROL_KEYS_V4 = \
      TURN_RIGHT: pygame.K_RIGHT, TURN_LEFT: pygame.K_LEFT,
      TURN_RIGHT_TURRET: 44, TURN_LEFT_TURRET: 46, SHOOT: 47}
 
-DIRECTION_MOVE_BY_ANGLE = {0: (0, -1), 90: (-1, 0), 180: (0, 1), 270: (1, 0)}
+DIRECTION_MOVE_BY_ANGLE = {0: (0, -0.9), 90: (-0.9, 0), 180: (0, 0.9), 270: (0.9, 0)}
 
 
 def get_player_coords():
@@ -83,14 +84,17 @@ class Map:
         check_prop = self.tiled_map.tmx_data.get_tile_properties
         self.free_tiles = []
         self.break_tiles = []
+        self.unbreak_tiles = []
         for y in range(self.height):
             for x in range(self.width):
                 type_of_tile = check_prop(x, y, 0)['type']
                 id_of_tyle = self.tiled_map.get_tile_id(x, y)
-                if type_of_tile == 'free' and id_of_tyle not in self.free_tiles:
+                if 'free' in type_of_tile and id_of_tyle not in self.free_tiles:
                     self.free_tiles.append(id_of_tyle)
                 elif type_of_tile == 'break' and id_of_tyle not in self.break_tiles:
                     self.break_tiles.append(id_of_tyle)
+                elif type_of_tile == 'unbreak' and id_of_tyle not in self.unbreak_tiles:
+                    self.unbreak_tiles.append(id_of_tyle)
 
     def render(self, screen):
         screen.fill('#000000')
@@ -102,7 +106,7 @@ class Map:
                     tank_stand_on = False
                     # Если на блоке стоит танк, то блок под ним отрисовывается первым свободным из списка
                     if not isinstance(gid, int):
-                        gid = self.free_tiles[0]
+                        gid = self.get_free_block(x, y)
                         tank_stand_on = True
 
                     tile = ti(gid)
@@ -118,6 +122,17 @@ class Map:
     def get_tile_id(self, position):
         return self.map[position[1]][position[0]]
 
+    def get_type_of_tile(self, x, y):
+        check_prop = self.tiled_map.tmx_data.get_tile_properties
+        type_of_tile = check_prop(x, y, 0)['type']
+        return type_of_tile
+
+    def get_free_block(self, x, y):
+        id_of_free_block = self.tiled_map.tmx_data.get_tile_gid(x, y, 0)
+        if id_of_free_block not in self.free_tiles:
+            id_of_free_block = self.free_tiles[0]
+        return id_of_free_block
+
     def is_free(self, position):
         return self.get_tile_id(position) in self.free_tiles
 
@@ -127,17 +142,24 @@ class Map:
                 if self.map[y][x].__repr__() == 'Player':
                     return x, y
 
-    def give_tanks_list_and_destinations(self, tank_turret, tank_hull, crash_tank, bullet, sprite_group):
+    def give_tanks_list_and_destinations(self, sprite_group):
         destinations = dict()
         tank_list = []
         for tile_object in self.tiled_map.tmx_data.objects:
-            if 'Tank' in tile_object.name:
+            if tile_object.name != 'Player':
                 rotate_turret, rotate_hull = tile_object.properties['rotate_turret'],\
                                              tile_object.properties['rotate_hull']
                 destination = tile_object.properties['destination']
                 x, y = int(tile_object.x // TILE_SIZE), int(tile_object.y // TILE_SIZE)
-                tank_list.append(Tank((x, y), tank_turret, tank_hull, crash_tank, bullet,
-                                      rotate_turret=rotate_turret, rotate_hull=rotate_hull, group=sprite_group))
+                if 'Tank' in tile_object.name:
+                    tank_list.append(Tank((x, y), rotate_turret=rotate_turret,
+                                          rotate_hull=rotate_hull, group=sprite_group))
+                elif 'Beast' in tile_object.name:
+                    tank_list.append(Beast((x, y), rotate_turret=rotate_turret,
+                                           rotate_hull=rotate_hull, group=sprite_group))
+                elif 'Heavy' in tile_object.name:
+                    tank_list.append(Heavy((x, y), rotate_turret=rotate_turret,
+                                           rotate_hull=rotate_hull, group=sprite_group))
                 if destination == 'self':
                     destinations[tank_list[-1]] = (x, y)
                 elif destination == 'player':
@@ -172,239 +194,66 @@ class TiledMap:
         return temp_surface
 
 
-class Tank(pygame.sprite.Sprite):
-    def __init__(self, position, image_turret, image_hull, crash_tank_image_turret, dict_id_bullets,
-                 rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1, group=None, is_player=False):
-        super().__init__()
-
-        self.is_player = is_player
-
-        self.crash_tank_image_turret = crash_tank_image_turret
-        self.dict_id_bullets = dict_id_bullets
-
-        # init turret
-        self.tank_turret = pygame.sprite.Sprite()
-        self.tank_turret.image = image_turret
-        self.tank_turret.rect = self.tank_turret.image.get_rect()
-        self.tank_turret.rect.x, self.tank_turret.rect.y = \
-            position[0] * TILE_SIZE, position[1] * TILE_SIZE
-
-        # init hull
-        self.image = image_hull
-        self.rect = self.image.get_rect()
-        self.rect.x, self.rect.y = \
-            position[0] * TILE_SIZE, position[1] * TILE_SIZE
-
-        self.rotate_turret = 0
-        self.set_turret_rotate(rotate_turret)
-        self.rotate_hull = 0
-        self.set_rotate(rotate_hull)
-        self.x, self.y = position
-
-        self.group = group
-        if self.group is not None:
-            self.group.add(self)
-            self.group.add(self.tank_turret)
-
-        self.control_keys = control_keys
-        self.is_crashed = False
-
-        # timers
-        self.shooting_cooldown = 40 * FPS
-        self.current_shooting_cooldown = 0
-
-        self.move_forward_cooldown = 8 * FPS
-        self.current_move_forward_cooldown = 0
-
-        self.move_back_cooldown = 10 * FPS
-        self.current_move_back_cooldown = 0
-
-        self.turn_cooldown = 20 * FPS
-        self.current_turn_cooldown = 0
-
-        self.turn_turret_cooldown = 30 * FPS
-        self.current_turn_turret_cooldown = 0
-
-    def update_timers(self, clock):
-        self.current_shooting_cooldown -= clock.get_time()
-        self.current_move_forward_cooldown -= clock.get_time()
-        self.current_move_back_cooldown -= clock.get_time()
-        self.current_turn_cooldown -= clock.get_time()
-        self.current_turn_turret_cooldown -= clock.get_time()
-
-    def get_position(self):
-        return self.x, self.y
-
-    def get_rotate(self):
-        return self.rotate_turret, self.rotate_hull
-
-    def set_control_keys(self, keys):
-        self.control_keys = keys
-
-    def set_position(self, position):
-        self.tank_turret.rect.x, self.tank_turret.rect.y = \
-            position[0] * TILE_SIZE, position[1] * TILE_SIZE
-        self.rect.x, self.rect.y = \
-            position[0] * TILE_SIZE, position[1] * TILE_SIZE
-        self.x, self.y = position
-
-    def set_turret_rotate(self, rotate):
-        self.rotate_turret = (self.rotate_turret + rotate) % 360
-        self.tank_turret.image = pygame.transform.rotate(self.tank_turret.image, rotate)
-
-    def set_rotate(self, rotate):
-        self.rotate_hull = (self.rotate_hull + rotate) % 360
-        self.image = pygame.transform.rotate(self.image, rotate)
-        self.set_turret_rotate(rotate)
-
-    def move_forward(self):
-        if self.current_move_forward_cooldown <= 0:
-            direction_move = DIRECTION_MOVE_BY_ANGLE[self.rotate_hull]
-            self.set_position((self.x + direction_move[0], self.y + direction_move[1]))
-            self.current_move_forward_cooldown = self.move_forward_cooldown
-            return True
-        return False
-
-    def move_back(self):
-        if self.current_move_back_cooldown <= 0:
-            direction_move = DIRECTION_MOVE_BY_ANGLE[self.rotate_hull]
-            self.set_position((self.x - direction_move[0], self.y - direction_move[1]))
-            self.current_move_back_cooldown = self.move_back_cooldown
-            return True
-        return False
-
-    def turn_right(self):
-        if self.current_turn_cooldown <= 0:
-            self.set_rotate(270)
-            self.current_turn_cooldown = self.turn_cooldown
-            return True
-        return False
-
-    def turn_left(self):
-        if self.current_turn_cooldown <= 0:
-            self.set_rotate(90)
-            self.current_turn_cooldown = self.turn_cooldown
-            return True
-        return False
-
-    def turn_turret_right(self):
-        if self.current_turn_turret_cooldown <= 0:
-            self.set_turret_rotate(270)
-            self.current_turn_turret_cooldown = self.turn_turret_cooldown
-            return True
-        return False
-
-    def turn_turret_left(self):
-        if self.current_turn_turret_cooldown <= 0:
-            self.set_turret_rotate(90)
-            self.current_turn_turret_cooldown = self.turn_turret_cooldown
-            return True
-        return False
-
-    def shoot(self, bullets_list):
-        if self.current_shooting_cooldown <= 0:
-            bullets_list.append(Bullet(
-                self.get_position(), self.rotate_turret, self.dict_id_bullets[0]))
-            self.current_shooting_cooldown = self.shooting_cooldown
-            return True
-        return False
-
-    def destroy_the_tank(self):
-        self.is_crashed = True
-        self.tank_turret.image = pygame.transform.rotate(
-            self.crash_tank_image_turret, self.get_rotate()[1])
-
-    def clear_the_tank(self):
-        self.group.remove(self)
-        self.group.remove(self.tank_turret)
-
-    def __repr__(self):
-        if self.is_player:
-            return 'Player'
-        else:
-            return 'Tank'
-
-
-class Bullet(pygame.sprite.Sprite):
-    def __init__(self, position, rotate, image):
-        super().__init__()
-        self.x, self.y = position
-        self.direction_move = DIRECTION_MOVE_BY_ANGLE[rotate]
-
-        self.image = pygame.transform.rotate(image, rotate)
-        self.rect = self.image.get_rect()
-        self.rect.x, self.rect.y = \
-            position[0] * TILE_SIZE, position[1] * TILE_SIZE
-
-        self.group = pygame.sprite.Group()
-        self.group.add(self)
-
-    def get_position(self):
-        return self.x, self.y
-
-    def get_direction_move(self):
-        return self.direction_move
-
-    def set_position(self, position):
-        self.x, self.y = position
-
-    def next_move(self):
-        self.x += self.direction_move[0]
-        self.y += self.direction_move[1]
-        self.rect.x, self.rect.y = \
-            self.x * TILE_SIZE, self.y * TILE_SIZE
-
-    def render(self, screen):
-        self.group.draw(screen)
-
-
 class Game:
-    def __init__(self, map, controlled_tanks, uncontrolled_tanks,
-                 bullets, clock, destinations, sprites_group=[]):
+    def __init__(self, map, controlled_tanks, bullets, clock, sprites_group=list()):
         self.map = map
         self.clock = clock
-
-        self.sprites_group = sprites_group
-        self.controlled_tanks = controlled_tanks
-        self.uncontrolled_tanks = uncontrolled_tanks
-
-        self.destinations = destinations
-
         self.camera = self.map.camera
 
+        # Инициализация миссий и "причин для поражения"
+        self.defeat_reasons = []
+        self.missions = []
+
+        # Группы танков
+        self.sprites_group = sprites_group
+        self.controlled_tanks = controlled_tanks
+        self.uncontrolled_tanks, self.destinations = (self.map.give_tanks_list_and_destinations(sprites_group[0]))
+
         self.bullets = bullets
+
+        self.end_count = 0
 
     def render(self, screen):
         self.map.camera = self.camera
         self.map.render(screen)
-        self.update_bullets(screen)
+        self.update_bullets()
 
         for bullet in self.bullets:
             self.camera.apply(bullet)
             bullet.render(screen)
 
-    def update_bullets(self, screen):
+    def update_bullets(self):
         for bullet in self.bullets:
             bullet.next_move()
-            bullet_x, bullet_y = bullet.get_position()
+            bullet_x, bullet_y = [round(i) for i in bullet.get_position()]
             if not self.map.is_free((bullet_x, bullet_y)):
-                del self.bullets[self.bullets.index(bullet)]
-                if isinstance(self.map.map[bullet_y][bullet_x], Tank):
-                    tank = self.map.map[bullet_y][bullet_x]
-                    if tank.is_crashed:
-                        self.map.map[bullet_y][bullet_x] = self.map.free_tiles[0]
-                        tank.clear_the_tank()
-                    else:
-                        tank.destroy_the_tank()
-                elif self.map.map[bullet_y][bullet_x] in self.map.break_tiles:
-                    self.map.map[bullet_y][bullet_x] = self.map.free_tiles[0]
+                if self.map.get_type_of_tile(bullet_x, bullet_y) != 'water':
+                    del self.bullets[self.bullets.index(bullet)]
+                    if isinstance(self.map.map[bullet_y][bullet_x], Tank):
+                        tank = self.map.map[bullet_y][bullet_x]
+                        tank.health -= 1
+                        if tank.health <= 0:
+                            if tank.is_crashed:
+                                self.map.map[bullet_y][bullet_x] = self.map.get_free_block(bullet_x, bullet_y)
+                                tank.clear_the_tank()
+                            else:
+                                tank.destroy_the_tank(self.uncontrolled_tanks)
+                    elif self.map.map[bullet_y][bullet_x] in self.map.break_tiles:
+                        self.map.map[bullet_y][bullet_x] = self.map.get_free_block(bullet_x, bullet_y)
+                    elif self.map.get_type_of_tile(bullet_x, bullet_y) == 'tnt':
+                        self.make_explode(bullet_x, bullet_y)
+
+    def make_explode(self, x, y):
+        self.map.map[y][x] = self.map.get_free_block(x, y)
+        for angle in range(0, 271, 90):
+            self.bullets.append(Bullet(
+                (x, y), angle, self.controlled_tanks[0].dict_id_bullets[0]))
 
     def update_controlled_tanks(self):
         for tank in self.controlled_tanks:
             tank.update_timers(self.clock)
             if tank.is_crashed:
                 continue
-            # cur_x, cur_y = next_x, next_y = tank.get_position()
             unpack_player_coords = self.map.find_player()
             if not unpack_player_coords:
                 cur_x, cur_y = next_x, next_y = tank.get_position()
@@ -412,7 +261,7 @@ class Game:
                 cur_x, cur_y = next_x, next_y = unpack_player_coords
 
             rotate_turret, rotate_hull = tank.get_rotate()
-            direction_move = DIRECTION_MOVE_BY_ANGLE[rotate_hull]
+            direction_move = [round(i) for i in DIRECTION_MOVE_BY_ANGLE[rotate_hull]]
             self.map.map[cur_y][cur_x] = tank
 
             if pygame.key.get_pressed()[tank.control_keys[FORWARD]]:
@@ -420,22 +269,22 @@ class Game:
                 next_y += direction_move[1]
                 if self.map.is_free((next_x, next_y)):
                     if tank.move_forward():
-                        self.map.map[cur_y][cur_x] = self.map.free_tiles[0]
+                        self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
                         self.map.map[next_y][next_x] = tank
-            if pygame.key.get_pressed()[tank.control_keys[BACK]]:
+            elif pygame.key.get_pressed()[tank.control_keys[BACK]]:
                 next_x -= direction_move[0]
                 next_y -= direction_move[1]
                 if self.map.is_free((next_x, next_y)):
                     if tank.move_back():
-                        self.map.map[cur_y][cur_x] = self.map.free_tiles[0]
+                        self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
                         self.map.map[next_y][next_x] = tank
             if pygame.key.get_pressed()[tank.control_keys[TURN_RIGHT]]:
                 tank.turn_right()
-            if pygame.key.get_pressed()[tank.control_keys[TURN_LEFT]]:
+            elif pygame.key.get_pressed()[tank.control_keys[TURN_LEFT]]:
                 tank.turn_left()
             if pygame.key.get_pressed()[tank.control_keys[TURN_RIGHT_TURRET]]:
                 tank.turn_turret_right()
-            if pygame.key.get_pressed()[tank.control_keys[TURN_LEFT_TURRET]]:
+            elif pygame.key.get_pressed()[tank.control_keys[TURN_LEFT_TURRET]]:
                 tank.turn_turret_left()
             elif pygame.key.get_pressed()[tank.control_keys[SHOOT]]:
                 tank.shoot(self.bullets)
@@ -458,111 +307,123 @@ class Game:
                 destination = destination()
             # нахождение цели
             path, status = self.find_path(tank.get_position(), destination)
-            # print(path)
 
-            self.calculate_uncontrolled_tank_turret(tank)
+            # Поскольку бот соображает слишком быстро, задержка через рандом должна снизить его скорость
+            if random() > 1 - tank.accuracy:
+                self.calculate_uncontrolled_tank_turret(tank)
 
-            if len(path) > 3 and destination != None:
-                self.calculate_uncontrolled_tank_move(path, destination, tank)
+            if random() > 1 - tank.speed:
+                if len(path) > 3 and destination != None:
+                    self.calculate_uncontrolled_tank_move(path, destination, tank)
+            else:
+                x, y = tank.get_position()
+                self.map.map[y][x] = tank
 
     def calculate_uncontrolled_tank_turret(self, tank):
-        # Поскольку бот соображает слишком быстро, задержка через рандом должна снизить его скорость
-        if random() > 0.80:
-            cur_x, cur_y = tank.get_position()
-            rotate_turret = tank.get_rotate()[0]
-            row_cells = self.map.map[cur_y].copy()
-            for cell in reversed(row_cells[:cur_x]):  # 90
-                if cell == 1:
-                    break
-                if isinstance(cell, Tank) and cell in self.controlled_tanks:
-                    if rotate_turret == 90:
-                        tank.shoot(self.bullets)
-                    elif rotate_turret == 0:
-                        tank.turn_turret_left()
-                    elif rotate_turret == 90:
-                        tank.turn_turret_right()
-                    elif rotate_turret == 180:
-                        tank.turn_turret_right()
-                    return None
-            for cell in row_cells[cur_x:]:  # 270
-                if cell == 1:
-                    break
-                if isinstance(cell, Tank) and cell in self.controlled_tanks:
-                    if rotate_turret == 270:
-                        tank.shoot(self.bullets)
-                    elif rotate_turret == 0:
-                        tank.turn_turret_right()
-                    elif rotate_turret == 270:
-                        tank.turn_turret_right()
-                    elif rotate_turret == 180:
-                        tank.turn_turret_left()
-                    return None
-            for cell in reversed([self.map.map[row][cur_x] for row in range(len(self.map.map)) if row < cur_x]):  # 0
-                if cell == 1:
-                    break
-                if isinstance(cell, Tank) and cell in self.controlled_tanks:
-                    if rotate_turret == 0:
-                        tank.shoot(self.bullets)
-                    elif rotate_turret == 90:
-                        tank.turn_turret_right()
-                    elif rotate_turret == 270:
-                        tank.turn_turret_left()
-                    elif rotate_turret == 180:
-                        tank.turn_turret_right()
-                    return None
-            for cell in [self.map.map[row][cur_x] for row in range(len(self.map.map)) if row > cur_x]:  # 180
-                if cell == 1:
-                    break
-                if isinstance(cell, Tank) and cell in self.controlled_tanks:
-                    if rotate_turret == 180:
-                        tank.shoot(self.bullets)
-                    elif rotate_turret == 0:
-                        tank.turn_turret_left()
-                    elif rotate_turret == 270:
-                        tank.turn_turret_right()
-                    elif rotate_turret == 90:
-                        tank.turn_turret_left()
-                    return None
+        cur_x, cur_y = tank.get_position()
+        rotate_turret = tank.get_rotate()[0]
+        row_cells = self.map.map[cur_y].copy()
+
+        down_y_axis = [self.map.map[y][cur_x] for y in range(cur_y, len(self.map.map))]
+        up_y_axis = [self.map.map[y][cur_x] for y in range(cur_y, 0, -1)]
+        left_x_axis = [self.map.map[cur_y][x] for x in range(cur_x, 0, -1)]
+        right_x_axis = [self.map.map[cur_y][x] for x in range(cur_x, len(self.map.map[0]))]
+        for cell in left_x_axis:  # 90
+            if cell in self.map.unbreak_tiles:
+                if 'Player' in left_x_axis:
+                    print('left', left_x_axis)
+                break
+            if isinstance(cell, Tank) and cell in self.controlled_tanks:
+                if rotate_turret == 90:
+                    tank.shoot(self.bullets)
+                elif rotate_turret == 0:
+                    tank.turn_turret_left()
+                elif rotate_turret == 90:
+                    tank.turn_turret_right()
+                elif rotate_turret == 180:
+                    tank.turn_turret_right()
+                return None
+        for cell in right_x_axis:  # 270
+            if cell in self.map.unbreak_tiles:
+                if 'Player' in right_x_axis:
+                    print('right', right_x_axis)
+                break
+            if isinstance(cell, Tank) and cell in self.controlled_tanks:
+                if rotate_turret == 270:
+                    tank.shoot(self.bullets)
+                elif rotate_turret == 0:
+                    tank.turn_turret_right()
+                elif rotate_turret == 270:
+                    tank.turn_turret_right()
+                elif rotate_turret == 180:
+                    tank.turn_turret_left()
+                return None
+        for cell in up_y_axis:  # 0
+            if cell in self.map.unbreak_tiles:
+                if 'Player' in up_y_axis:
+                    print('up', up_y_axis)
+                break
+            if isinstance(cell, Tank) and cell in self.controlled_tanks:
+                if rotate_turret == 0:
+                    tank.shoot(self.bullets)
+                elif rotate_turret == 90:
+                    tank.turn_turret_right()
+                elif rotate_turret == 270:
+                    tank.turn_turret_left()
+                elif rotate_turret == 180:
+                    tank.turn_turret_right()
+                return None
+        for cell in down_y_axis:  # 180
+            if cell in self.map.unbreak_tiles:
+                if 'Player' in down_y_axis:
+                    print('up', down_y_axis)
+                break
+            if isinstance(cell, Tank) and cell in self.controlled_tanks:
+                if rotate_turret == 180:
+                    tank.shoot(self.bullets)
+                elif rotate_turret == 0:
+                    tank.turn_turret_left()
+                elif rotate_turret == 270:
+                    tank.turn_turret_right()
+                elif rotate_turret == 90:
+                    tank.turn_turret_left()
+                return None
 
     def calculate_uncontrolled_tank_move(self, path, destination, tank):
         cur_x, cur_y = next_x, next_y = tank.get_position()
         rotate_hull = tank.get_rotate()[1]
-        # Поскольку бот соображает слишком быстро, задержка через рандом должна снизить его скорость
-        if random() > 0.80:
-            next_step = path[2]
-            direction_move = self.calculate_direction(tank.get_position(), next_step)
-            next_x += direction_move[0]
-            next_y += direction_move[1]
-            if direction_move == (0, 1):
-                if rotate_hull == 180:
-                    if tank.move_forward():
-                        self.map.map[cur_y][cur_x] = self.map.free_tiles[0]
-                        self.map.map[next_y][next_x] = tank
-                else:
-                    tank.turn_left()
-            if direction_move == (1, 0):
-                if rotate_hull == 270:
-                    if tank.move_forward():
-                        self.map.map[cur_y][cur_x] = self.map.free_tiles[0]
-                        self.map.map[next_y][next_x] = tank
-                else:
-                    tank.turn_right()
-            if direction_move == (0, -1):
-                if rotate_hull == 0:
-                    if tank.move_forward():
-                        self.map.map[cur_y][cur_x] = self.map.free_tiles[0]
-                        self.map.map[next_y][next_x] = tank
-                else:
-                    tank.turn_right()
-            if direction_move == (-1, 0):
-                if rotate_hull == 90:
-                    if tank.move_forward():
-                        self.map.map[cur_y][cur_x] = self.map.free_tiles[0]
-                        self.map.map[next_y][next_x] = tank
-                else:
-                    tank.turn_left()
-        else:
-            self.map.map[next_y][next_x] = tank
+        next_step = path[2]
+        direction_move = self.calculate_direction(tank.get_position(), next_step)
+        next_x += direction_move[0]
+        next_y += direction_move[1]
+        if direction_move == (0, 1):
+            if rotate_hull == 180:
+                if tank.move_forward():
+                    self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
+                    self.map.map[next_y][next_x] = tank
+            else:
+                tank.turn_left()
+        if direction_move == (1, 0):
+            if rotate_hull == 270:
+                if tank.move_forward():
+                    self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
+                    self.map.map[next_y][next_x] = tank
+            else:
+                tank.turn_right()
+        if direction_move == (0, -1):
+            if rotate_hull == 0:
+                if tank.move_forward():
+                    self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
+                    self.map.map[next_y][next_x] = tank
+            else:
+                tank.turn_right()
+        if direction_move == (-1, 0):
+            if rotate_hull == 90:
+                if tank.move_forward():
+                    self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
+                    self.map.map[next_y][next_x] = tank
+            else:
+                tank.turn_left()
 
     def calculate_direction(self, this_step, next_step):
         return tuple(next_step[i] - this_step[i] for i in range(len(this_step)))
@@ -633,6 +494,18 @@ class Game:
                                     cells_list.append((x_step, y_step))
             return cells_list
 
+    def end_game_and_return_status(self, screen):
+        results = [reason() for reason in self.defeat_reasons]
+        if any(results):
+            show_message(screen, 'Вы проиграли.')
+            self.end_count += 1
+            return 'lose'
+        results = [mission() for mission in self.missions]
+        if any(results):
+            show_message(screen, 'Победа!')
+            self.end_count += 1
+            return 'win'
+
 
 class Camera:
     # зададим начальный сдвиг камеры
@@ -648,11 +521,9 @@ class Camera:
             obj.rect.y += self.rect.top
         if isinstance(obj, Tank):
             pass
-            # obj.rect.x += self.rect.left
         elif isinstance(obj, pygame.Rect):
             obj.width += self.rect.left
             obj.height += self.rect.top
-            # obj.move(self.rect.topleft)
 
     # позиционировать камеру на объекте target
     def update(self, target):
@@ -685,79 +556,101 @@ def show_message(screen, message):
     screen.blit(text, (text_x, text_y))
 
 
-def init_test_scene(clock):
-    green_tank_turret = pygame.transform.scale(load_image(
-        "green_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-    green_tank_hull = pygame.transform.scale(load_image(
-        "green_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-    red_tank_turret = pygame.transform.scale(load_image(
-        "red_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-    red_tank_hull = pygame.transform.scale(load_image(
-        "red_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-    crash_tank = pygame.transform.scale(load_image(
-        "crached_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-    bullet_0 = pygame.transform.scale(load_image(
-        "bullet_0.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+class LevelLoader:
+    def init_lvl1_scene(self, clock):
+        # Формирование кадра(команды рисования на холсте):
+        main_map = Map("1_lvl.tmx")
+        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
-    # Формирование кадра(команды рисования на холсте):
-    main_map = Map("1_lvl.tmx")
-    all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+        controlled_tanks = [
+            Tank((7, 1), rotate_turret=0, rotate_hull=180, group=all_sprites,
+                 control_keys=CONTROL_KEYS_V1, is_player=True)]
 
-    controlled_tanks = [
-        Tank((7, 1), green_tank_turret, green_tank_hull, crash_tank, {0: bullet_0},
-             rotate_turret=0, rotate_hull=180, group=all_sprites,
-             control_keys=CONTROL_KEYS_V1)]
+        bullets = []
+        game = Game(main_map, controlled_tanks, bullets, clock, sprites_group=[all_sprites])
+        game.missions = [lambda: len(game.uncontrolled_tanks) == 0]
+        game.defeat_reasons = [lambda: game.controlled_tanks[0].is_crashed]
+        return game
 
-    bullets = []
-    # Цели, которые по-разному раздаются танкам-ботам
-    uncontrolled_tanks, destinations = (main_map.give_tanks_list_and_destinations(red_tank_turret, red_tank_hull,
-                                                                                  crash_tank, {0: bullet_0},
-                                                                                  all_sprites))
+    def init_lvl2_scene(self, clock):
+        # Формирование кадра(команды рисования на холсте):
+        main_map = Map("2_lvl.tmx")
+        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
-    return Game(main_map, controlled_tanks, uncontrolled_tanks,
-                bullets, clock, destinations, sprites_group=[all_sprites])
+        controlled_tanks = [
+            Tank((1, 1), rotate_turret=0, rotate_hull=180, group=all_sprites,
+                 control_keys=CONTROL_KEYS_V1, is_player=True)]
 
+        bullets = []
 
-def init_lvl2_scene(clock):
-    green_tank_turret = pygame.transform.scale(load_image(
-        "green_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-    green_tank_hull = pygame.transform.scale(load_image(
-        "green_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-    red_tank_turret = pygame.transform.scale(load_image(
-        "red_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-    red_tank_hull = pygame.transform.scale(load_image(
-        "red_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-    crash_tank = pygame.transform.scale(load_image(
-        "crached_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-    bullet_0 = pygame.transform.scale(load_image(
-        "bullet_0.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+        game = Game(main_map, controlled_tanks, bullets, clock, sprites_group=[all_sprites])
+        stand_on_control_point = lambda: game.map.get_type_of_tile(get_player_coords()[0],
+                                                           get_player_coords()[1]) == 'free_control_point'
+        game.missions = [stand_on_control_point]
+        game.defeat_reasons = [lambda: game.controlled_tanks[0].is_crashed]
+        return game
 
-    # Формирование кадра(команды рисования на холсте):
-    main_map = Map("2_lvl.tmx")
-    all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+    def init_lvl3_scene(self, clock):
+        # Формирование кадра(команды рисования на холсте):
+        main_map = Map("3_lvl.tmx")
+        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
-    controlled_tanks = [
-        Tank((1, 1), green_tank_turret, green_tank_hull, crash_tank, {0: bullet_0},
-             rotate_turret=0, rotate_hull=180, group=all_sprites,
-             control_keys=CONTROL_KEYS_V1, is_player=True)]
+        controlled_tanks = [
+            Tank((7, 7), rotate_turret=0, rotate_hull=180, group=all_sprites,
+                 control_keys=CONTROL_KEYS_V1, is_player=True)]
 
-    uncontrolled_tanks, destinations = (main_map.give_tanks_list_and_destinations(red_tank_turret, red_tank_hull,
-                                   crash_tank, {0: bullet_0}, all_sprites))
+        bullets = []
 
-    bullets = []
+        game = Game(main_map, controlled_tanks, bullets, clock, sprites_group=[all_sprites])
+        game.missions = [lambda: len(game.uncontrolled_tanks) == 0]
+        game.defeat_reasons = [lambda: game.controlled_tanks[0].is_crashed]
+        return game
 
-    return Game(main_map, controlled_tanks, uncontrolled_tanks,
-                bullets, clock, destinations, sprites_group=[all_sprites])
+    def init_lvl4_scene(self, clock):
+        # Формирование кадра(команды рисования на холсте):
+        main_map = Map("4_lvl.tmx")
+        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+
+        controlled_tanks = [
+            Tank((1, 1), rotate_turret=0, rotate_hull=180, group=all_sprites,
+                 control_keys=CONTROL_KEYS_V1, is_player=True)]
+
+        bullets = []
+
+        game = Game(main_map, controlled_tanks, bullets, clock, sprites_group=[all_sprites])
+        game.missions = [lambda: len(game.uncontrolled_tanks) == 0]
+        game.defeat_reasons = [lambda: game.controlled_tanks[0].is_crashed]
+        return game
+
+    def init_lvl5_scene(self, clock):
+        # Формирование кадра(команды рисования на холсте):
+        main_map = Map("5_lvl.tmx")
+        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+
+        controlled_tanks = [
+            Tank((1, 1), rotate_turret=0, rotate_hull=180, group=all_sprites,
+                 control_keys=CONTROL_KEYS_V1, is_player=True)]
+
+        bullets = []
+
+        game = Game(main_map, controlled_tanks, bullets, clock, sprites_group=[all_sprites])
+        stand_on_control_point = lambda: game.map.get_type_of_tile(get_player_coords()[0],
+                                                                   get_player_coords()[1]) == 'free_control_point'
+        game.missions = [lambda: len(game.uncontrolled_tanks) == 0, stand_on_control_point]
+        game.defeat_reasons = [lambda: game.controlled_tanks[0].is_crashed]
+        return game
 
 
 def main():
-    pygame.init()
-    screen = pygame.display.set_mode(WINDOW_SIZE)
+
     pygame.display.set_caption("TANK BATTLES")
+
+    lvl_loader = LevelLoader()
+    lvl_count = 1
 
     # Главный игровой цикл:
     clock = pygame.time.Clock()
-    game = init_lvl2_scene(clock)
+    game = lvl_loader.init_lvl1_scene(clock)
 
     running = True
     while running:
@@ -765,13 +658,26 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            # обработка остальных событий
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    lvl_count += 1
+                    if lvl_count > 5:
+                        lvl_count = 0
+                    game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')(clock)
+                elif event.key == pygame.K_h:
+                    game.controlled_tanks[0].health = 999
             # ...
 
-        game.render(screen)
+        if game.end_count == 5:
+            pygame.time.delay(3000)
+            if game.end_game_and_return_status(screen) == 'win':
+                lvl_count += 1
+            game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')(clock)
 
+        game.render(screen)
         game.update_controlled_tanks()
         game.update_uncontrolled_tanks()
+        game.end_game_and_return_status(screen)
 
         pygame.display.flip()
         clock.tick(FPS)
