@@ -33,7 +33,8 @@ normal_bullet_dict = {0: bullet_0}
 
 
 class Tank(pygame.sprite.Sprite):
-    def __init__(self, position, rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1, group=None, is_player=False):
+    def __init__(self, position, rotate_turret=0, rotate_hull=0,
+                 control_keys=CONTROL_KEYS_V1, group=None, is_player=False):
         super().__init__()
 
         self.is_player = is_player
