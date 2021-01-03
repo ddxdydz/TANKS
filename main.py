@@ -10,7 +10,7 @@ WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 600, 600
 TILE_SIZE = 40
 FPS = 15
 MAPS_DIR = "maps"
-player_coords = (0, 0)
+SOUND_DIR = 'sounds'
 
 # Control
 FORWARD = 91
@@ -20,6 +20,10 @@ TURN_LEFT = 94
 TURN_RIGHT_TURRET = 95
 TURN_LEFT_TURRET = 96
 SHOOT = 97
+
+# Sound volume
+PLAYER_MOVEMENTS = 0.5
+EXPLOSIONS = 0.3
 
 # Control keys dicts
 CONTROL_KEYS_V1 = \
@@ -46,7 +50,24 @@ DIRECTION_MOVE_BY_ANGLE = {0: (0, -0.9), 90: (-0.9, 0), 180: (0, 0.9), 270: (0.9
 
 
 def get_player_coords():
-    return player_coords
+    with open('player_coords.txt') as file:
+        coords = eval(file.readline())
+        file.close()
+        return coords
+
+
+def set_player_coords(coords):
+    with open('player_coords.txt', 'w+') as file:
+        file.seek(0)
+        file.write(str(coords))
+        file.close()
+
+
+def play_background_music(name):
+    pygame.mixer.music.stop()
+    pygame.mixer.music.load(os.path.join(SOUND_DIR, 'music', f'{name}.mp3'))
+    pygame.mixer.music.set_volume(0.7)
+    pygame.mixer.music.play(loops=-1)
 
 
 def load_image(name, colorkey=None):
@@ -238,10 +259,16 @@ class Game:
                                 tank.clear_the_tank()
                             else:
                                 tank.destroy_the_tank(self.uncontrolled_tanks)
+                        else:
+                            bullet.sounds_unbreak()
                     elif self.map.map[bullet_y][bullet_x] in self.map.break_tiles:
                         self.map.map[bullet_y][bullet_x] = self.map.get_free_block(bullet_x, bullet_y)
+                        bullet.sounds_break()
                     elif self.map.get_type_of_tile(bullet_x, bullet_y) == 'tnt':
                         self.make_explode(bullet_x, bullet_y)
+                    else:
+                        bullet.sounds_unbreak()
+            # bullet.sound_near_with_player()
 
     def make_explode(self, x, y):
         self.map.map[y][x] = self.map.get_free_block(x, y)
@@ -292,8 +319,9 @@ class Game:
             self.camera.update(tank)
             self.camera.apply(tank)
             self.map.camera = self.camera
-            global player_coords
-            player_coords = tank.get_position()
+            if (next_x, next_y) == (cur_x, cur_y):
+                tank.play_brake()
+            set_player_coords(tank.get_position())
 
     def update_uncontrolled_tanks(self):
         for tank in self.uncontrolled_tanks:
@@ -560,11 +588,13 @@ class LevelLoader:
     def init_lvl1_scene(self, clock):
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("1_lvl.tmx")
+        play_background_music('1_lvl')
+
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         controlled_tanks = [
-            Tank((7, 1), rotate_turret=0, rotate_hull=180, group=all_sprites,
-                 control_keys=CONTROL_KEYS_V1, is_player=True)]
+            Player((7, 1), rotate_turret=0, rotate_hull=180, group=all_sprites,
+                 control_keys=CONTROL_KEYS_V1)]
 
         bullets = []
         game = Game(main_map, controlled_tanks, bullets, clock, sprites_group=[all_sprites])
@@ -575,11 +605,13 @@ class LevelLoader:
     def init_lvl2_scene(self, clock):
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("2_lvl.tmx")
+        play_background_music('2_lvl')
+
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         controlled_tanks = [
-            Tank((1, 1), rotate_turret=0, rotate_hull=180, group=all_sprites,
-                 control_keys=CONTROL_KEYS_V1, is_player=True)]
+            Player((1, 1), rotate_turret=0, rotate_hull=180, group=all_sprites,
+                 control_keys=CONTROL_KEYS_V1)]
 
         bullets = []
 
@@ -593,11 +625,12 @@ class LevelLoader:
     def init_lvl3_scene(self, clock):
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("3_lvl.tmx")
+        play_background_music('3_lvl')
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         controlled_tanks = [
-            Tank((7, 7), rotate_turret=0, rotate_hull=180, group=all_sprites,
-                 control_keys=CONTROL_KEYS_V1, is_player=True)]
+            Player((7, 7), rotate_turret=0, rotate_hull=180, group=all_sprites,
+                 control_keys=CONTROL_KEYS_V1)]
 
         bullets = []
 
@@ -609,11 +642,12 @@ class LevelLoader:
     def init_lvl4_scene(self, clock):
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("4_lvl.tmx")
+        play_background_music('4_lvl')
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         controlled_tanks = [
-            Tank((1, 1), rotate_turret=0, rotate_hull=180, group=all_sprites,
-                 control_keys=CONTROL_KEYS_V1, is_player=True)]
+            Player((1, 1), rotate_turret=0, rotate_hull=180, group=all_sprites,
+                 control_keys=CONTROL_KEYS_V1)]
 
         bullets = []
 
@@ -625,11 +659,12 @@ class LevelLoader:
     def init_lvl5_scene(self, clock):
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("5_lvl.tmx")
+        play_background_music('5_lvl')
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         controlled_tanks = [
-            Tank((1, 1), rotate_turret=0, rotate_hull=180, group=all_sprites,
-                 control_keys=CONTROL_KEYS_V1, is_player=True)]
+            Player((1, 1), rotate_turret=0, rotate_hull=180, group=all_sprites,
+                 control_keys=CONTROL_KEYS_V1)]
 
         bullets = []
 
@@ -642,8 +677,8 @@ class LevelLoader:
 
 
 def main():
-
     pygame.display.set_caption("TANK BATTLES")
+    pygame.mixer.init()
 
     lvl_loader = LevelLoader()
     lvl_count = 1
@@ -662,7 +697,7 @@ def main():
                 if event.key == pygame.K_SPACE:
                     lvl_count += 1
                     if lvl_count > 5:
-                        lvl_count = 0
+                        lvl_count = 1
                     game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')(clock)
                 elif event.key == pygame.K_h:
                     game.controlled_tanks[0].health = 999
