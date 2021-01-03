@@ -62,8 +62,6 @@ user_info = {'sound_value': 100,
              'high_scores': [('-', 0) for _ in range(10)]}
 
 main_menu_manager = pygame_gui.UIManager(WINDOW_SIZE)
-sound_slider_manager = pygame_gui.UIManager(WINDOW_SIZE)
-music_slider_manager = pygame_gui.UIManager(WINDOW_SIZE)
 game_pause_manager = pygame_gui.UIManager(WINDOW_SIZE)
 game_process_manager = pygame_gui.UIManager(WINDOW_SIZE)
 
@@ -125,7 +123,7 @@ sound_value_slider = pygame_gui.elements.ui_horizontal_slider.UIHorizontalSlider
     relative_rect=pygame.Rect((indent_left + sound_btn_size[0], sound_btn.rect.y), sound_slider_size),
     value_range=(0, 100),
     start_value=100,
-    manager=sound_slider_manager)
+    manager=main_menu_manager)
 music_btn = pygame_gui.elements.UIButton(
     relative_rect=pygame.Rect((
         indent_right - sound_btn_size[0],
@@ -137,7 +135,7 @@ music_value_slider = pygame_gui.elements.ui_horizontal_slider.UIHorizontalSlider
         sound_btn.rect.y), sound_slider_size),
     value_range=(0, 100),
     start_value=100,
-    manager=music_slider_manager)
+    manager=main_menu_manager)
 
 
 def load_image(name, colorkey=None):
@@ -950,8 +948,6 @@ def start_screen():
     is_open_a_conf_dialog = False
     do_show_info = False
     do_show_scores = False
-    show_sound_slider = False
-    show_music_slider = False
     while True:
         time_delta = clock.tick(60) / 1000.0
         for event in pygame.event.get():
@@ -972,7 +968,7 @@ def start_screen():
                 if event.user_type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
                     print(event.text)
                 if event.user_type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
-                    print(event.text)
+                    pass
                 if event.user_type == pygame_gui.UI_BUTTON_ON_HOVERED:
                     pass
                 if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
@@ -990,33 +986,23 @@ def start_screen():
                             show_confirmation_dialog(main_menu_manager)  # TODO исправить баг с диалогом
                             is_open_a_conf_dialog = True
                     elif event.ui_element == sound_btn:
-                        show_sound_slider = not show_sound_slider
-                        show_music_slider = False
+                        sound_value_slider.show()
+                        music_value_slider.hide()
                     elif event.ui_element == music_btn:
-                        show_music_slider = not show_music_slider
-                        show_sound_slider = False
+                        sound_value_slider.hide()
+                        music_value_slider.show()
             if pygame.mouse.get_pos()[1] < 525:
-                show_music_slider = False
-                show_sound_slider = False
+                if sound_value_slider.visible:
+                    sound_value_slider.hide()
+                if music_value_slider.visible:
+                    music_value_slider.hide()
 
             main_menu_manager.process_events(event)
-            if show_sound_slider:
-                sound_slider_manager.process_events(event)
-            if show_music_slider:
-                music_slider_manager.process_events(event)
         main_menu_manager.update(time_delta)
-        if show_sound_slider:
-            sound_slider_manager.update(time_delta)
-        if show_music_slider:
-            music_slider_manager.update(time_delta)
 
         draw_the_main_background()
 
         main_menu_manager.draw_ui(screen)
-        if show_sound_slider:
-            sound_slider_manager.draw_ui(screen)
-        if show_music_slider:
-            music_slider_manager.draw_ui(screen)
 
         if do_show_scores:
             show_highscore_board()
