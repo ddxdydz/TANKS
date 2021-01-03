@@ -1,5 +1,6 @@
 import os
 import sys
+import datetime as dt
 from random import random
 from queue import Queue
 import pygame
@@ -14,6 +15,8 @@ TILE_SIZE = 40
 FPS = 40
 MAPS_DIR = 'data/maps'
 FONTS_DIR = 'data/fonts'
+SAVED_SESSION_DIR = 'data/saved sessions'
+SAVED_USER_INFO = 'data/saved user info'
 
 # Control
 FORWARD = 91
@@ -52,136 +55,89 @@ pygame.display.set_caption(TITLE)
 screen = pygame.display.set_mode(WINDOW_SIZE)
 clock = pygame.time.Clock()
 
-custom_settings = {'language': 'русский',
-                   'sound_value': 100,
-                   'music_value': 100,
-                   'user_name': ''}
-
 player_coords = (0, 0)
-lvl_count_id = 5
+user_info = {'sound_value': 100,
+             'music_value': 100,
+             'name': 'user_name',
+             'high_scores': [('-', 0) for _ in range(10)]}
 
-general_manager = pygame_gui.UIManager(WINDOW_SIZE)
 main_menu_manager = pygame_gui.UIManager(WINDOW_SIZE)
-settings_menu_manager = pygame_gui.UIManager(WINDOW_SIZE)
-game_types_menu_manager = pygame_gui.UIManager(WINDOW_SIZE)
-game_level_menu_manager = pygame_gui.UIManager(WINDOW_SIZE)
+sound_slider_manager = pygame_gui.UIManager(WINDOW_SIZE)
+music_slider_manager = pygame_gui.UIManager(WINDOW_SIZE)
+game_pause_manager = pygame_gui.UIManager(WINDOW_SIZE)
+game_process_manager = pygame_gui.UIManager(WINDOW_SIZE)
 
-# Init menu
-intro_text_menu = ['ПРОДОЛЖИТЬ',
-                   'ИГРАТЬ ЛОКАЛЬНО',
-                   'РЕКОРДЫ',
-                   'КАК ИГРАТЬ',
-                   'НАСТРОЙКИ',
-                   'ВЫЙТИ']
+# Init main menu title
+title_size = 60
+title_font = pygame.font.Font(f'{FONTS_DIR}/Unicephalon.otf', title_size)
+title_text = title_font.render(TITLE, True, COLOR_TEXT)
+title_text_x = WINDOW_WIDTH // 2 - title_text.get_width() // 2
+title_text_y = 80
 
-menu_btn_size = (150, 40)
-sound_btn_size = (40, 40)
-name_entry_line_size = (200, 29)
+# init set name menu buttons
+label_btn_size = (90, 30)
+entry_line_size = (150, 40)
+label = pygame_gui.elements.ui_label.UILabel(
+    relative_rect=pygame.Rect((
+        (WINDOW_WIDTH - label_btn_size[0] - entry_line_size[0]) // 2,
+        title_text_y + title_text.get_height()), label_btn_size),
+    text='YOUR NAME:',
+    manager=main_menu_manager)
+name_entry_line = pygame_gui.elements.UITextEntryLine(
+    relative_rect=pygame.Rect((
+        (WINDOW_WIDTH + label_btn_size[0] - entry_line_size[0]) // 2,
+        title_text_y + title_text.get_height()), entry_line_size),
+    manager=main_menu_manager)
+name_entry_line.set_text_length_limit(16)
+name_entry_line.set_text('User_Name_3')
+# Init main menu buttons
+btn_size = (200, 50)
 indent_between_buttons = 10
-indent_down = round(WINDOW_WIDTH * 0.05)
-indent_top = 118 + (404 - len(intro_text_menu) * (indent_between_buttons + menu_btn_size[1])) // 2
-indent_left = 49
+indent_down = WINDOW_HEIGHT - 20
+indent_top = title_text_y + title_text.get_height() + label.rect.height
+indent_left = 40
+indent_right = WINDOW_WIDTH - 40
 
+# Init menu list buttons
+intro_main_menu_text = ['CONTINUE',
+                        'NEW GAME',
+                        'HIGH SCORES',
+                        'HOW TO PLAY',
+                        'EXIT']
+sum_buttons_size = (btn_size[1] + indent_between_buttons) * len(intro_main_menu_text)
 dict_menu_buttons = dict()
-# init menu buttons
-btn_menu_rect = pygame.Rect((indent_left, indent_top), menu_btn_size)
-for btn_txt in intro_text_menu:
+btn_menu_rect = pygame.Rect((
+    (WINDOW_WIDTH - btn_size[0]) // 2,
+    (WINDOW_HEIGHT + indent_top - sum_buttons_size) // 2), btn_size)
+for btn_txt in intro_main_menu_text:
     dict_menu_buttons[btn_txt] = \
         pygame_gui.elements.UIButton(
             relative_rect=btn_menu_rect, text=btn_txt, manager=main_menu_manager)
-    btn_menu_rect.y += menu_btn_size[1] + indent_between_buttons
-# init sound off/on buttons
-menu_sound_btn = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((WINDOW_WIDTH - indent_left - sound_btn_size[0] * 2 - indent_between_buttons,
-                               WINDOW_HEIGHT - indent_down - sound_btn_size[1]), sound_btn_size),
-    text='sound_on', manager=main_menu_manager)
-menu_music_btn = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((WINDOW_WIDTH - indent_left - sound_btn_size[0],
-                               WINDOW_HEIGHT - indent_down - sound_btn_size[1]), sound_btn_size),
-    text='music_on', manager=main_menu_manager)
-# init set name menu button
-name_entry_line = pygame_gui.elements.UITextEntryLine(
-    relative_rect=pygame.Rect((indent_left, WINDOW_HEIGHT - indent_down - name_entry_line_size[1]),
-                              name_entry_line_size), manager=main_menu_manager)
+    btn_menu_rect.y += btn_size[1] + indent_between_buttons
 
-# Init settings buttons
-btn_size = (200, 50)
-btn_cords = (WINDOW_WIDTH - btn_size[0]) // 2, 200
-language_menu_size = btn_size
-
-indent_x = btn_size[1] + indent_between_buttons
-small_btn_size = (btn_size[1], btn_size[1])
-slider_size = (btn_size[0] - indent_between_buttons - btn_size[1], btn_size[1])
-
-# init language menu
-language_btn = pygame_gui.elements.ui_drop_down_menu.UIDropDownMenu(
-    options_list=['Русский', 'Английский'],
-    starting_option='Русский',
-    relative_rect=pygame.Rect((btn_cords[0], btn_cords[1]), btn_size),
-    manager=settings_menu_manager)
-# init sound buttons
-settings_sound_btn = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((btn_cords[0], btn_cords[1] + indent_x), small_btn_size),
-    text='SOUND', manager=settings_menu_manager)
+# Init sound buttons
+sound_btn_size = (40, 40)
+sound_slider_size = (190, 40)
+sound_btn = pygame_gui.elements.UIButton(
+    relative_rect=pygame.Rect((indent_left, indent_down - sound_btn_size[1]), sound_btn_size),
+    text='SOUND', manager=main_menu_manager)
 sound_value_slider = pygame_gui.elements.ui_horizontal_slider.UIHorizontalSlider(
-    relative_rect=pygame.Rect(
-        (btn_cords[0] + small_btn_size[0] + indent_between_buttons,
-         btn_cords[1] + indent_x), slider_size),
-    value_range=(0, 101),
+    relative_rect=pygame.Rect((indent_left + sound_btn_size[0], sound_btn.rect.y), sound_slider_size),
+    value_range=(0, 100),
     start_value=100,
-    manager=settings_menu_manager)
-
-# init music buttons
-settings_music_btn = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((btn_cords[0], btn_cords[1] + indent_x * 2), small_btn_size),
-    text='MUSIC', manager=settings_menu_manager)
+    manager=sound_slider_manager)
+music_btn = pygame_gui.elements.UIButton(
+    relative_rect=pygame.Rect((
+        indent_right - sound_btn_size[0],
+        indent_down - sound_btn_size[1]), sound_btn_size),
+    text='MUSIC', manager=main_menu_manager)
 music_value_slider = pygame_gui.elements.ui_horizontal_slider.UIHorizontalSlider(
-    relative_rect=pygame.Rect((btn_cords[0] + small_btn_size[0] + indent_between_buttons,
-                               btn_cords[1] + indent_x * 2), slider_size),
-    value_range=(0, 101),
+    relative_rect=pygame.Rect((
+        indent_right - sound_btn_size[0] - sound_slider_size[0],
+        sound_btn.rect.y), sound_slider_size),
+    value_range=(0, 100),
     start_value=100,
-    manager=settings_menu_manager)
-
-# init close button
-settings_close_btn = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((btn_cords[0], btn_cords[1] + indent_x * 3), btn_size),
-    text='CLOSE', manager=settings_menu_manager)
-
-# Init game types menu buttons
-offset = 20
-single_player_btn = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((btn_cords[0], btn_cords[1] + offset), btn_size),
-    text='SINGLE PLAYER', manager=game_types_menu_manager)
-two_player_btn = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((btn_cords[0], btn_cords[1] + offset + indent_x * 2), btn_size),
-    text='TWO PLAYERS', manager=game_types_menu_manager)
-three_player_btn = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((btn_cords[0], btn_cords[1] + offset + indent_x * 3), btn_size),
-    text='THREE PLAYERS', manager=game_types_menu_manager)
-game_types_menu_close_btn = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((btn_cords[0], btn_cords[1] + indent_x * 5), btn_size),
-    text='CLOSE', manager=game_types_menu_manager)
-
-# Init game levels buttons
-dict_level_buttons = dict()
-level_list = ['1', '2', '3', '4', '5']
-level_btn_size = (60, 60)
-start_cords = ((WINDOW_WIDTH - (indent_between_buttons + level_btn_size[1]) * len(level_list)) // 2, 200)
-btn_level_rect = pygame.Rect(start_cords, level_btn_size)
-for btn_lvl in level_list:
-    dict_level_buttons[btn_lvl] = \
-        pygame_gui.elements.UIButton(
-            relative_rect=btn_level_rect, text=btn_lvl, manager=game_level_menu_manager)
-    btn_level_rect.x += level_btn_size[0] + indent_between_buttons
-
-survival_mode_btn = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((start_cords[0], 300),
-                              (btn_level_rect.x - start_cords[0], level_btn_size[1])),
-    text='SURVIVAL MODE', manager=game_level_menu_manager)
-
-level_menu_close_btn = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((btn_cords[0], btn_cords[1] + indent_x * 5), btn_size),
-    text='CLOSE', manager=game_level_menu_manager)
+    manager=music_slider_manager)
 
 
 def load_image(name, colorkey=None):
@@ -223,11 +179,6 @@ normal_bullet_dict = {0: bullet_0}
 
 def get_player_coords():
     return player_coords
-
-
-def set_custom_settings(*args):
-    for elem in args:
-        print()
 
 
 def show_message(screen, message):
@@ -872,6 +823,34 @@ class Game:
             return 'win'
 
 
+def save_user_info():
+    with open(f'{SAVED_USER_INFO}/save.dat', 'wb') as file:
+        pickle.dump({'name': name_entry_line.text,
+                     'sound_value': sound_value_slider.current_value,
+                     'music_value': music_value_slider.current_value,
+                     'high_scores': user_info['high_scores']}, file)
+
+
+def load_user_info():
+    global user_info
+    with open(f'{SAVED_USER_INFO}/save.dat', 'rb') as file:
+        user_info = pickle.load(file)
+    name_entry_line.set_text(user_info['name'])
+    sound_value_slider.set_current_value(user_info['sound_value'])
+    music_value_slider.set_current_value(user_info['music_value'])
+
+
+def save_game(game):
+    with open(f'{SAVED_SESSION_DIR}/save.dat', 'wb') as file:
+        pickle.dump(game, file)
+
+
+def load_saved_game():
+    with open(f'{SAVED_SESSION_DIR}/save.dat', 'rb') as file:
+        game = pickle.load(file)
+    return game
+
+
 class Camera:
     # зададим начальный сдвиг камеры
     def __init__(self, width, height):
@@ -909,50 +888,6 @@ class Camera:
         self.rect = pygame.Rect(dx, dy, self.width, self.height)
 
 
-def show_settings_menu():
-    def draw_background():
-        draw_the_main_background()
-        draw_the_dialog_background('SETTINGS')
-
-    is_open_a_conf_dialog = False
-    draw_background()
-    while True:
-        time_delta = clock.tick(60) / 1000.0
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                if not is_open_a_conf_dialog:
-                    show_confirmation_dialog(settings_menu_manager)
-                    is_open_a_conf_dialog = True
-            if event.type == pygame.USEREVENT:
-                if event.user_type == pygame_gui.UI_CONFIRMATION_DIALOG_CONFIRMED:
-                    terminate()
-                if event.user_type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
-                    print(event.text)
-                if event.user_type == pygame_gui.UI_BUTTON_ON_HOVERED:
-                    print('Наведение на кнопку')
-                    # return  # начинаем игру
-                if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
-                    is_open_a_conf_dialog = False
-                    print('g')
-                    if event.ui_element == settings_close_btn:
-                        print('g')
-                        return
-                    draw_background()
-            settings_menu_manager.process_events(event)
-            general_manager.process_events(event)
-        settings_menu_manager.update(time_delta)
-        general_manager.update(time_delta)
-
-        if is_open_a_conf_dialog:
-            draw_background()
-
-        settings_menu_manager.draw_ui(screen)
-        general_manager.draw_ui(screen)
-
-        pygame.display.flip()
-        clock.tick(FPS)
-
-
 def show_highscore_board():
     # init fon
     fon = pygame.Surface((WINDOW_WIDTH * 0.7, WINDOW_HEIGHT * 0.7))
@@ -977,139 +912,12 @@ def show_info_menu():
     draw_the_dialog_background('press button', y=480)
 
 
-def show_the_game_menu():
-    def draw_sign_name_type_game():
-        text_size0 = 20
-        font = pygame.font.Font(f'{FONTS_DIR}/Unicephalon.otf', text_size0)
-        text1 = font.render('PLAYING WITH BOTS', True, COLOR_TEXT)
-        text2 = font.render('PLAYING WITH PLAYERS', True, COLOR_TEXT)
-        screen.blit(text1, (
-            (WINDOW_WIDTH - text1.get_width()) // 2, btn_cords[1]))
-        screen.blit(text2, (
-            (WINDOW_WIDTH - text2.get_width()) // 2, btn_cords[1] + indent_x * 2))
-
-    def draw_background():
-        draw_the_main_background()
-        draw_the_dialog_background('GAME MENU')
-        draw_sign_name_type_game()
-
-    is_open_a_conf_dialog = False
-    draw_background()
-    while True:
-        time_delta = clock.tick(60) / 1000.0
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                if not is_open_a_conf_dialog:
-                    show_confirmation_dialog(game_types_menu_manager)
-                    is_open_a_conf_dialog = True
-            if event.type == pygame.USEREVENT:
-                if event.user_type == pygame_gui.UI_CONFIRMATION_DIALOG_CONFIRMED:
-                    terminate()
-                if event.user_type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
-                    print(event.text)
-                if event.user_type == pygame_gui.UI_BUTTON_ON_HOVERED:
-                    print('Наведение на кнопку')
-                if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
-                    is_open_a_conf_dialog = False
-                    if event.ui_element == game_types_menu_close_btn:
-                        return
-                    elif event.ui_element == single_player_btn:
-                        show_the_level_list()
-                        draw_background()
-                    elif event.ui_element == two_player_btn:
-                        pass
-                    elif event.ui_element == three_player_btn:
-                        pass
-                    draw_background()
-            game_types_menu_manager.process_events(event)
-            general_manager.process_events(event)
-        game_types_menu_manager.update(time_delta)
-        general_manager.update(time_delta)
-
-        if is_open_a_conf_dialog:
-            draw_background()
-
-        game_types_menu_manager.draw_ui(screen)
-        general_manager.draw_ui(screen)
-
-        pygame.display.flip()
-        clock.tick(FPS)
-
-
-def show_the_level_list():
-    global lvl_count_id
-    def draw_background():
-        draw_the_main_background()
-        draw_the_dialog_background('LEVELS:')
-
-    is_open_a_conf_dialog = False
-    draw_background()
-    while True:
-        time_delta = clock.tick(60) / 1000.0
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                if not is_open_a_conf_dialog:
-                    show_confirmation_dialog(game_level_menu_manager)
-                    is_open_a_conf_dialog = True
-            if event.type == pygame.USEREVENT:
-                if event.user_type == pygame_gui.UI_CONFIRMATION_DIALOG_CONFIRMED:
-                    terminate()
-                if event.user_type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
-                    print(event.text)
-                if event.user_type == pygame_gui.UI_BUTTON_ON_HOVERED:
-                    print('Наведение на кнопку')
-                if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
-                    is_open_a_conf_dialog = False
-                    if event.ui_element == level_menu_close_btn:
-                        return
-                    elif event.ui_element == survival_mode_btn:
-                        pass
-                    elif event.ui_element == dict_level_buttons['1']:
-                        lvl_count_id = 1
-                    elif event.ui_element == dict_level_buttons['2']:
-                        lvl_count_id = 2
-                    elif event.ui_element == dict_level_buttons['3']:
-                        lvl_count_id = 3
-                    elif event.ui_element == dict_level_buttons['4']:
-                        lvl_count_id = 4
-                    elif event.ui_element == dict_level_buttons['5']:
-                        lvl_count_id = 5
-                    draw_background()
-            game_level_menu_manager.process_events(event)
-            general_manager.process_events(event)
-        game_level_menu_manager.update(time_delta)
-        general_manager.update(time_delta)
-
-        if is_open_a_conf_dialog:
-            draw_background()
-
-        game_level_menu_manager.draw_ui(screen)
-        general_manager.draw_ui(screen)
-
-        pygame.display.flip()
-        clock.tick(FPS)
-
-
 def draw_the_dialog_background(message, y=150):
     # init title
     font = pygame.font.Font(f'{FONTS_DIR}/Unicephalon.otf', 20)
     text = font.render(message, True, COLOR_TEXT)
     text_x = (WINDOW_WIDTH - text.get_width()) // 2
     text_y = y
-    screen.blit(text, (text_x, text_y))
-
-
-def draw_the_main_background():
-    # init fon
-    fon = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
-    fon.fill(pygame.Color((0, 0, 0)))
-    screen.blit(fon, (0, 0))
-
-    # init title
-    font = pygame.font.Font(f'{FONTS_DIR}/Unicephalon.otf', 60)
-    text = font.render(TITLE, True, COLOR_TEXT)
-    text_x = WINDOW_WIDTH // 2 - text.get_width() // 2
-    text_y = round(WINDOW_HEIGHT * 0.1)
     screen.blit(text, (text_x, text_y))
 
 
@@ -1129,70 +937,86 @@ def show_confirmation_dialog(manager):
 
 
 def start_screen():
-    def draw_sign_name_entry_line():
-        text_size0 = 20
-        font0 = pygame.font.Font(f'{FONTS_DIR}/Unicephalon.otf', text_size0)
-        name_entry_text = font0.render('ВАШЕ ИМЯ:', True, COLOR_TEXT)
-        screen.blit(name_entry_text, (round(WINDOW_WIDTH * 0.085), 522))
+    def draw_the_main_background():
+        # init fon
+        fon = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
+        fon.fill(pygame.Color((0, 0, 0)))
+        screen.blit(fon, (0, 0))
 
-    def draw_background():
-        draw_the_main_background()
-        draw_sign_name_entry_line()
+        # init title
+        screen.blit(title_text, (title_text_x, title_text_y))
 
-    draw_background()
+    draw_the_main_background()
     is_open_a_conf_dialog = False
     do_show_info = False
     do_show_scores = False
+    show_sound_slider = False
+    show_music_slider = False
     while True:
         time_delta = clock.tick(60) / 1000.0
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 if not is_open_a_conf_dialog:
-                    show_confirmation_dialog(main_menu_manager)
+                    show_confirmation_dialog(main_menu_manager)  # TODO исправить баг с диалогом
                     is_open_a_conf_dialog = True
             if event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
                 do_show_info = False
                 do_show_scores = False
-                draw_background()
             if event.type == pygame.USEREVENT:
                 if event.user_type == pygame_gui.UI_CONFIRMATION_DIALOG_CONFIRMED:
+                    save_user_info()
                     terminate()  # exit
                 if event.user_type == pygame_gui.UI_TEXT_ENTRY_FINISHED:
                     print(event.text)
                 if event.user_type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
                     print(event.text)
+                if event.user_type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
+                    print(event.text)
                 if event.user_type == pygame_gui.UI_BUTTON_ON_HOVERED:
                     pass
                 if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
                     is_open_a_conf_dialog = False
-                    if event.ui_element == dict_menu_buttons['ПРОДОЛЖИТЬ']:  # Continue
-                        return  # start game
-                    elif event.ui_element == dict_menu_buttons['ИГРАТЬ ЛОКАЛЬНО']:  # Play local
-                        show_the_game_menu()
-                        draw_background()
-                    elif event.ui_element == dict_menu_buttons['РЕКОРДЫ']:  # Highscore board
+                    if event.ui_element == dict_menu_buttons['CONTINUE']:
+                        return load_saved_game()
+                    elif event.ui_element == dict_menu_buttons['NEW GAME']:
+                        return False  # start new game
+                    elif event.ui_element == dict_menu_buttons['HIGH SCORES']:
                         do_show_scores = True
-                    elif event.ui_element == dict_menu_buttons['КАК ИГРАТЬ']:  # How to play
+                    elif event.ui_element == dict_menu_buttons['HOW TO PLAY']:
                         do_show_info = True
-                    elif event.ui_element == dict_menu_buttons['НАСТРОЙКИ']:  # Settings
-                        show_settings_menu()
-                        draw_background()
-                    elif event.ui_element == dict_menu_buttons['ВЫЙТИ']:  # Exit
+                    elif event.ui_element == dict_menu_buttons['EXIT']:
                         if not is_open_a_conf_dialog:
-                            show_confirmation_dialog(main_menu_manager)
+                            show_confirmation_dialog(main_menu_manager)  # TODO исправить баг с диалогом
                             is_open_a_conf_dialog = True
+                    elif event.ui_element == sound_btn:
+                        show_sound_slider = not show_sound_slider
+                        show_music_slider = False
+                    elif event.ui_element == music_btn:
+                        show_music_slider = not show_music_slider
+                        show_sound_slider = False
+            if pygame.mouse.get_pos()[1] < 525:
+                show_music_slider = False
+                show_sound_slider = False
 
             main_menu_manager.process_events(event)
-            general_manager.process_events(event)
+            if show_sound_slider:
+                sound_slider_manager.process_events(event)
+            if show_music_slider:
+                music_slider_manager.process_events(event)
         main_menu_manager.update(time_delta)
-        general_manager.update(time_delta)
+        if show_sound_slider:
+            sound_slider_manager.update(time_delta)
+        if show_music_slider:
+            music_slider_manager.update(time_delta)
 
-        if is_open_a_conf_dialog:
-            draw_background()
+        draw_the_main_background()
 
         main_menu_manager.draw_ui(screen)
-        general_manager.draw_ui(screen)
+        if show_sound_slider:
+            sound_slider_manager.draw_ui(screen)
+        if show_music_slider:
+            music_slider_manager.draw_ui(screen)
 
         if do_show_scores:
             show_highscore_board()
@@ -1301,13 +1125,16 @@ class LevelLoader:
 
 
 def main():
-    lvl_count = 5
+    lvl_count = 1
     lvl_loader = LevelLoader()
     game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')()
 
     # Главный игровой цикл:
     running = True
-    start_screen()
+    load_user_info()
+    is_continue = start_screen()
+    if is_continue:
+        game = is_continue
     while running:
         # Цикл приема и обработки сообщений:
         for event in pygame.event.get():
@@ -1324,9 +1151,16 @@ def main():
                 # Features for testing:
                 if event.key == pygame.K_h:
                     game.controlled_tanks[0].health = 999
+                elif event.key == pygame.K_g:
+                    save_game(game)
+                elif event.key == pygame.K_l:
+                    game = load_saved_game()
                 elif event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5]:
                     lvl_count = event.unicode
                     game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')()
+                elif event.key == pygame.K_F12:
+                    now = ''.join([elem for elem in str(dt.datetime.now()) if elem.isdigit()])
+                    pygame.image.save(screen, f'screenshots/screenshot_{now}.png')
 
         # if game.end_count == 5:
         #     pygame.time.delay(3000)
