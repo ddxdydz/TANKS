@@ -7,6 +7,10 @@ green_tank_turret = pygame.transform.scale(load_image(
             "green_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 green_tank_hull = pygame.transform.scale(load_image(
             "green_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+salad_tank_turret = pygame.transform.scale(load_image(
+            "salad_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+salad_tank_hull = pygame.transform.scale(load_image(
+            "salad_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 red_tank_turret = pygame.transform.scale(load_image(
             "red_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 red_tank_hull = pygame.transform.scale(load_image(
@@ -27,44 +31,29 @@ bullet_0 = pygame.transform.scale(load_image(
 sprites_dict = {'Tank': (red_tank_hull, red_tank_turret),
                 'Beast': (beast_tank_hull, beast_tank_turret),
                 'Player': (green_tank_hull, green_tank_turret),
-                'Heavy': (heavy_tank_hull, heavy_tank_turret)}
+                'Heavy': (heavy_tank_hull, heavy_tank_turret),
+                'Allied': (salad_tank_hull, salad_tank_turret)}
 
 normal_bullet_dict = {0: bullet_0}
 
 
 class Tank(pygame.sprite.Sprite):
-    def __init__(self, position, rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1, group=None, is_player=False):
+    def __init__(self, position, rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1,
+                 group=None, respawn=False):
         super().__init__()
-
-        self.is_player = is_player
-
         self.speed = 0.20
         self.accuracy = 0.20
         self.health = 1
+        self.team = 'black'
 
         self.crash_tank_image_turret = crash_tank
         self.dict_id_bullets = normal_bullet_dict
-
-        # init turret
-        self.tank_turret = pygame.sprite.Sprite()
-        self.tank_turret.image = sprites_dict[self.__repr__()][1]
-        self.tank_turret.rect = self.tank_turret.image.get_rect()
-        self.tank_turret.rect.x, self.tank_turret.rect.y = \
-            position[0] * TILE_SIZE, position[1] * TILE_SIZE
-
-        # init hull
-        self.image = sprites_dict[self.__repr__()][0]
-        self.rect = self.image.get_rect()
-        self.rect.x, self.rect.y = \
-            position[0] * TILE_SIZE, position[1] * TILE_SIZE
-
-        self.rotate_turret = 0
-        self.set_turret_rotate(rotate_turret)
-        self.rotate_hull = 0
-        self.set_rotate(rotate_hull)
-        self.x, self.y = position
+        self.respawn = respawn
 
         self.group = group
+
+        self.init_tank_graphics(position, rotate_hull, rotate_turret)
+
         if self.group is not None:
             self.group.add(self)
             self.group.add(self.tank_turret)
@@ -88,12 +77,44 @@ class Tank(pygame.sprite.Sprite):
         self.turn_turret_cooldown = 30 * FPS
         self.current_turn_turret_cooldown = 0
 
+        if self.respawn:
+            self.respawn_time = 10 * FPS
+            self.respawn_args = (position, rotate_hull, rotate_turret)
+
+    def init_tank_graphics(self, position, rotate_hull, rotate_turret):
+        # init turret
+        self.tank_turret = pygame.sprite.Sprite()
+        self.tank_turret.image = sprites_dict[self.__repr__()][1]
+        self.tank_turret.rect = self.tank_turret.image.get_rect()
+        self.tank_turret.rect.x, self.tank_turret.rect.y = \
+            position[0] * TILE_SIZE, position[1] * TILE_SIZE
+
+        # init hull
+        self.image = sprites_dict[self.__repr__()][0]
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = \
+            position[0] * TILE_SIZE, position[1] * TILE_SIZE
+
+        self.rotate_turret = 0
+        self.set_turret_rotate(rotate_turret)
+        self.rotate_hull = 0
+        self.set_rotate(rotate_hull)
+        self.x, self.y = position
+
     def update_timers(self, clock):
         self.current_shooting_cooldown -= clock.get_time()
         self.current_move_forward_cooldown -= clock.get_time()
         self.current_move_back_cooldown -= clock.get_time()
         self.current_turn_cooldown -= clock.get_time()
         self.current_turn_turret_cooldown -= clock.get_time()
+        if self.respawn and self.is_crashed:
+            self.respawn_time -= 1
+            self.clear_the_tank()
+            if self.respawn_time <= 0:
+                self.respawn_time = 10 * FPS
+                self.is_crashed = False
+                self.init_tank_graphics(*self.respawn_args)
+                self.set_position(self.respawn_args[0])
 
     def get_position(self):
         return self.x, self.y
@@ -176,7 +197,7 @@ class Tank(pygame.sprite.Sprite):
         self.is_crashed = True
         self.tank_turret.image = pygame.transform.rotate(
             self.crash_tank_image_turret, self.get_rotate()[1])
-        if not self.is_player:
+        if self.__repr__() != 'Player' and not self.respawn:
             another_group.remove(self)
 
     def clear_the_tank(self):
@@ -184,16 +205,35 @@ class Tank(pygame.sprite.Sprite):
         self.group.remove(self.tank_turret)
 
     def __repr__(self):
-        if self.is_player:
-            return 'Player'
-        else:
-            return 'Tank'
+        return 'Tank'
+
+
+class Player(Tank):
+    def __init__(self, position, rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1,
+                 group=None, respawn=False):
+        super().__init__(position, rotate_turret, rotate_hull, control_keys, group, respawn)
+        self.team = 'green'
+
+    def __repr__(self):
+        return 'Player'
+
+
+class Allied(Tank):
+    def __init__(self, position, rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1,
+                 group=None, respawn=False):
+        super().__init__(position, rotate_turret, rotate_hull, control_keys, group, respawn)
+        self.team = 'green'
+        self.speed = 0.25
+        self.accuracy = 0.25
+
+    def __repr__(self):
+        return 'Allied'
 
 
 class Beast(Tank):
     def __init__(self, position, rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1,
-                 group=None, is_player=False):
-        super().__init__(position, rotate_turret, rotate_hull, control_keys, group, is_player)
+                 group=None, respawn=False):
+        super().__init__(position, rotate_turret, rotate_hull, control_keys, group, respawn)
         self.speed = 0.666
         self.accuracy = 0.333
 
@@ -203,8 +243,8 @@ class Beast(Tank):
 
 class Heavy(Tank):
     def __init__(self, position, rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1,
-                 group=None, is_player=False):
-        super().__init__(position, rotate_turret, rotate_hull, control_keys, group, is_player)
+                 group=None, respawn=False):
+        super().__init__(position, rotate_turret, rotate_hull, control_keys, group, respawn)
         self.speed = 0.10
         self.accuracy = 0.40
         self.health = 2

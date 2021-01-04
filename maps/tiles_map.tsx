@@ -11,7 +11,11 @@
  <tile id="6" type="free"/>
  <tile id="7" type="free"/>
  <tile id="8" type="break"/>
- <tile id="9" type="break"/>
+ <tile id="9" type="free"/>
  <tile id="10" type="break"/>
  <tile id="11" type="free_control_point"/>
+ <tile id="12" type="water"/>
+ <tile id="13" type="break"/>
+ <tile id="14" type="break"/>
+ <tile id="15" type="unbreak_closed"/>
 </tileset>
