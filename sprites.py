@@ -25,6 +25,10 @@ heavy_tank_turret = pygame.transform.scale(load_image(
             "heavy_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 crash_tank = pygame.transform.scale(load_image(
             "crached_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+convoy_hull = pygame.transform.scale(load_image(
+            "convoy_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+convoy_crash = pygame.transform.scale(load_image(
+            "convoy_crash.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 bullet_0 = pygame.transform.scale(load_image(
             "bullet_0.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 
@@ -32,9 +36,96 @@ sprites_dict = {'Tank': (red_tank_hull, red_tank_turret),
                 'Beast': (beast_tank_hull, beast_tank_turret),
                 'Player': (green_tank_hull, green_tank_turret),
                 'Heavy': (heavy_tank_hull, heavy_tank_turret),
-                'Allied': (salad_tank_hull, salad_tank_turret)}
+                'Allied': (salad_tank_hull, salad_tank_turret),
+                'Convoy': (convoy_hull, None)}
 
 normal_bullet_dict = {0: bullet_0}
+
+
+class Convoy(pygame.sprite.Sprite):
+    def __init__(self, position, rotate_hull=0, group=None):
+        super().__init__()
+
+        # game settings
+        self.speed = 1
+        self.accuracy = -1
+        self.health = 2
+        self.team = 'green'
+        self.is_crashed = False
+        self.respawn = False
+
+        # timers
+        self.move_forward_cooldown = 50 * FPS
+        self.current_move_forward_cooldown = 0
+
+        self.turn_cooldown = 50 * FPS
+        self.current_turn_cooldown = 0
+
+        # init hull
+        self.image = sprites_dict[self.__repr__()][0]
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = \
+            position[0] * TILE_SIZE, position[1] * TILE_SIZE
+        self.rotate_hull = 0
+        self.set_rotate(rotate_hull)
+        self.x, self.y = position
+
+        self.group = group
+
+        if self.group is not None:
+            self.group.add(self)
+
+    def update_timers(self, clock):
+        self.current_move_forward_cooldown -= clock.get_time()
+        self.current_turn_cooldown -= clock.get_time()
+
+    def get_position(self):
+        return self.x, self.y
+
+    def get_rotate(self):
+        return None, self.rotate_hull
+
+    def turn_right(self):
+        if self.current_turn_cooldown <= 0:
+            self.set_rotate(270)
+            self.current_turn_cooldown = self.turn_cooldown
+            return True
+        return False
+
+    def turn_left(self):
+        if self.current_turn_cooldown <= 0:
+            self.set_rotate(90)
+            self.current_turn_cooldown = self.turn_cooldown
+            return True
+        return False
+
+    def move_forward(self):
+        if self.current_move_forward_cooldown <= 0:
+            direction_move = [round(i) for i in DIRECTION_MOVE_BY_ANGLE[self.rotate_hull]]
+            self.set_position((self.x + direction_move[0], self.y + direction_move[1]))
+            self.current_move_forward_cooldown = self.move_forward_cooldown
+            return True
+        return False
+
+    def set_rotate(self, rotate):
+        self.rotate_hull = (self.rotate_hull + rotate) % 360
+        self.image = pygame.transform.rotate(self.image, rotate)
+
+    def set_position(self, position):
+        self.rect.x, self.rect.y = \
+            position[0] * TILE_SIZE, position[1] * TILE_SIZE
+        self.x, self.y = position
+
+    def destroy_the_tank(self, another_group):
+        self.is_crashed = True
+        self.image = pygame.transform.rotate(convoy_crash, self.get_rotate()[1])
+        another_group.remove(self)
+
+    def clear_the_tank(self):
+        self.group.remove(self)
+
+    def __repr__(self):
+        return 'Convoy'
 
 
 class Tank(pygame.sprite.Sprite):

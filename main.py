@@ -129,7 +129,8 @@ class Map:
 
                         if tank_stand_on:
                             screen.blit(self.map[y][x].image, (tile_rect.width, tile_rect.height))
-                            screen.blit(self.map[y][x].tank_turret.image, (tile_rect.width, tile_rect.height))
+                            if getattr(self.map[y][x], 'tank_turret', False):
+                                screen.blit(self.map[y][x].tank_turret.image, (tile_rect.width, tile_rect.height))
                             if self.map[y][x].respawn:
                                 if self.map[y][x].respawn_time <= 90:
                                     self.map[y][x] = self.get_free_block(x, y)
@@ -199,13 +200,15 @@ class Map:
                 elif 'Allied' in tile_object.name:
                     tank_list.append(Allied((x, y), rotate_turret=rotate_turret,
                                            rotate_hull=rotate_hull, group=sprite_group, respawn=respawn))
+                elif 'Convoy' in tile_object.name:
+                    tank_list.append(Convoy((x, y), rotate_hull=rotate_hull, group=sprite_group))
                 if destination == 'self':
                     destinations[tank_list[-1]] = None
                 elif destination == 'player':
                     destinations[tank_list[-1]] = get_player_coords
                 elif 'detect' in destination:
                     def detect_func(range_x, range_y):
-                        return get_player_coords() if (
+                        return get_player_coords if (
                                     get_player_coords()[0] in range_x and get_player_coords()[1] in range_y) else None
 
                     ranges = eval(destination[7:])
@@ -280,7 +283,7 @@ class Game:
             if not self.map.is_free((bullet_x, bullet_y)):
                 if self.map.get_type_of_tile(bullet_x, bullet_y) != 'water':
                     del self.bullets[self.bullets.index(bullet)]
-                    if isinstance(self.map.map[bullet_y][bullet_x], Tank):
+                    if getattr(self.map.map[bullet_y][bullet_x], 'team', False):
                         tank = self.map.map[bullet_y][bullet_x]
                         tank.health -= 1
                         if tank.health <= 0:
@@ -359,6 +362,8 @@ class Game:
             elif isinstance(destination, tuple):
                 if callable(destination[0]):
                     destination = destination[0](*destination[1])
+                    if destination != None:
+                        self.destinations[tank] = destination
             # нахождение цели
             if destination != None:
                 path, status = self.find_path(tank.get_position(), destination)
@@ -371,18 +376,32 @@ class Game:
                 if destination != None:
                     if len(path) > 3:
                         self.calculate_uncontrolled_tank_move(path, destination, tank)
-            else:
-                x, y = tank.get_position()
-                self.map.map[y][x] = tank
+            x, y = tank.get_position()
+            self.map.map[y][x] = tank
+            '''if tank.__repr__() == 'Convoy':
+                count_tile = 1
+                for y_step in range(y - 1, y + 1):
+                    for x_step in range(x - 1, x + 1):
+                        if self.map.is_free((x_step, y_step)):
+                            count_tile += 1
+                            self.map.map[y_step][x_step] = tank
+                        if count_tile == 4:
+                            break'''
 
     def calculate_uncontrolled_tank_turret(self, tank):
         def break_check(cell):
             if cell not in self.map.unbreak_tiles:
-                if isinstance(cell, Tank):
-                    if cell.__repr__() == 'Player' and tank.team == 'green':
-                        return True
+                if cell.__repr__() == 'Player' and tank.team == 'green':
+                    return True
                 return False
             return True
+
+        def from_other_team(cell):
+            try:
+                team = getattr(cell, 'team', tank.team)
+                return tank.team != team
+            except Exception as e:
+                return False
 
         cur_x, cur_y = tank.get_position()
         rotate_turret = tank.get_rotate()[0]
@@ -395,61 +414,63 @@ class Game:
         for cell in left_x_axis:  # 90
             if break_check(cell):
                 break
-            if isinstance(cell, Tank):
-                if cell.team != tank.team:
-                    if rotate_turret == 90:
-                        tank.shoot(self.bullets)
-                    elif rotate_turret == 0:
-                        tank.turn_turret_left()
-                    elif rotate_turret == 90:
-                        tank.turn_turret_right()
-                    elif rotate_turret == 180:
-                        tank.turn_turret_right()
-                    return None
+            if from_other_team(cell):
+                if rotate_turret == 90:
+                    tank.shoot(self.bullets)
+                elif rotate_turret == 0:
+                    tank.turn_turret_left()
+                elif rotate_turret == 90:
+                    tank.turn_turret_right()
+                elif rotate_turret == 180:
+                    tank.turn_turret_right()
+                return None
         for cell in right_x_axis:  # 270
             if break_check(cell):
                 break
-            if isinstance(cell, Tank):
-                if cell.team != tank.team:
-                    if rotate_turret == 270:
-                        tank.shoot(self.bullets)
-                    elif rotate_turret == 0:
-                        tank.turn_turret_right()
-                    elif rotate_turret == 270:
-                        tank.turn_turret_right()
-                    elif rotate_turret == 180:
-                        tank.turn_turret_left()
-                    return None
+            if from_other_team(cell):
+                if rotate_turret == 270:
+                    tank.shoot(self.bullets)
+                elif rotate_turret == 0:
+                    tank.turn_turret_right()
+                elif rotate_turret == 270:
+                    tank.turn_turret_right()
+                elif rotate_turret == 180:
+                    tank.turn_turret_left()
+                return None
         for cell in up_y_axis:  # 0
             if break_check(cell):
                 break
-            if isinstance(cell, Tank):
-                if cell.team != tank.team:
-                    if rotate_turret == 0:
-                        tank.shoot(self.bullets)
-                    elif rotate_turret == 90:
-                        tank.turn_turret_right()
-                    elif rotate_turret == 270:
-                        tank.turn_turret_left()
-                    elif rotate_turret == 180:
-                        tank.turn_turret_right()
-                    return None
+            if from_other_team(cell):
+                if rotate_turret == 0:
+                    tank.shoot(self.bullets)
+                elif rotate_turret == 90:
+                    tank.turn_turret_right()
+                elif rotate_turret == 270:
+                    tank.turn_turret_left()
+                elif rotate_turret == 180:
+                    tank.turn_turret_right()
+                return None
         for cell in down_y_axis:  # 180
             if break_check(cell):
                 break
-            if isinstance(cell, Tank):
-                if cell.team != tank.team:
-                    if rotate_turret == 180:
-                        tank.shoot(self.bullets)
-                    elif rotate_turret == 0:
-                        tank.turn_turret_left()
-                    elif rotate_turret == 270:
-                        tank.turn_turret_right()
-                    elif rotate_turret == 90:
-                        tank.turn_turret_left()
-                    return None
+            if from_other_team(cell):
+                if rotate_turret == 180:
+                    tank.shoot(self.bullets)
+                elif rotate_turret == 0:
+                    tank.turn_turret_left()
+                elif rotate_turret == 270:
+                    tank.turn_turret_right()
+                elif rotate_turret == 90:
+                    tank.turn_turret_left()
+                return None
 
     def calculate_uncontrolled_tank_move(self, path, destination, tank):
+        def turn_hull_optimal(degree):
+            if rotate_hull + 90 == degree:
+                tank.turn_left()
+            else:
+                tank.turn_right()
+
         cur_x, cur_y = next_x, next_y = tank.get_position()
         rotate_hull = tank.get_rotate()[1]
         next_step = path[2]
@@ -462,28 +483,28 @@ class Game:
                     self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
                     self.map.map[next_y][next_x] = tank
             else:
-                tank.turn_left()
+                turn_hull_optimal(180)
         if direction_move == (1, 0):
             if rotate_hull == 270:
                 if tank.move_forward():
                     self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
                     self.map.map[next_y][next_x] = tank
             else:
-                tank.turn_right()
+                turn_hull_optimal(270)
         if direction_move == (0, -1):
             if rotate_hull == 0:
                 if tank.move_forward():
                     self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
                     self.map.map[next_y][next_x] = tank
             else:
-                tank.turn_right()
+                turn_hull_optimal(0)
         if direction_move == (-1, 0):
             if rotate_hull == 90:
                 if tank.move_forward():
                     self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
                     self.map.map[next_y][next_x] = tank
             else:
-                tank.turn_left()
+                turn_hull_optimal(90)
 
     def calculate_direction(self, this_step, next_step):
         return tuple(next_step[i] - this_step[i] for i in range(len(this_step)))
@@ -496,7 +517,7 @@ class Game:
         graph = {}
         for y, row in enumerate(self.map.map):
             for x, column in enumerate(row):
-                graph[(x, y)] = graph.get((x, y), []) + self.check_neighbour(x, y, start)
+                graph[(x, y)] = graph.get((x, y), []) + self.check_neighbour(x, y, start, destination)
 
         queue = Queue()
         queue.put(start)
@@ -528,10 +549,11 @@ class Game:
             path.append(current_cell)
         path.append(start)
         path.reverse()
-        return path, status
+        return path[:5], status
 
-    def check_neighbour(self, x, y, pathfinder_coords):
+    def check_neighbour(self, x, y, pathfinder_coords, destination):
         cells_list = [(x, y)]
+        pathfinder = self.map.map[pathfinder_coords[1]][pathfinder_coords[0]]
         is_next_neighbor = lambda p1, p2: True if all([(0 <= p2 < len(self.map.map)),
                                                        (0 <= p1 < len(self.map.map[0]))]) else False
         while True:
@@ -548,10 +570,14 @@ class Game:
                         for x_step in x_list:
                             if is_next_neighbor(x_step, y_step):
                                 neighbour_cell = self.map.map[y_step][x_step]
-                                if (self.map.is_free((x_step, y_step)) or
-                                    (isinstance(neighbour_cell, Tank) and neighbour_cell in self.controlled_tanks))\
+                                if pathfinder.__repr__() == 'Convoy':
+                                    if neighbour_cell == self.map.free_tiles[0]\
+                                            or self.map.get_type_of_tile(x_step, y_step) == 'free_control_point':
+                                        cells_list.append((x_step, y_step))
+                                elif (self.map.is_free((x_step, y_step)) or
+                                    destination == (x_step, y_step))\
                                         and (x_step, y_step) != pathfinder_coords:
-                                    cells_list.append((x_step, y_step))
+                                        cells_list.append((x_step, y_step))
             return cells_list
 
     def end_game_and_return_status(self, screen):
@@ -623,6 +649,7 @@ class LevelLoader:
 
         self.all_bots_are_dead = lambda: len(game.uncontrolled_tanks) == 0
         self.player_are_dead = lambda: game.controlled_tanks[0].is_crashed
+        self.all_convoy_is_dead = lambda: [i.__repr__() for i in game.uncontrolled_tanks].count('Convoy') < 2
 
     def init_lvl1_scene(self, clock):
         # Формирование кадра(команды рисования на холсте):
@@ -661,8 +688,8 @@ class LevelLoader:
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
 
         self.init_reasons_and_missions(game)
-        game.missions = [lambda: len(game.uncontrolled_tanks) == 0]
-        game.defeat_reasons = [lambda: game.controlled_tanks[0].is_crashed]
+        game.missions = [self.stand_on_control_point]
+        game.defeat_reasons = [self.player_are_dead]
         return game
 
     def init_lvl4_scene(self, clock):
@@ -675,8 +702,9 @@ class LevelLoader:
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
 
         self.init_reasons_and_missions(game)
-        game.missions = []
-        game.defeat_reasons = [lambda: game.controlled_tanks[0].is_crashed]
+        convoy_here = lambda: [i.__repr__() for i in sum([game.map.map[60][22:26], game.map.map[61][22:26]], [])].count('Convoy') == 2
+        game.missions = [convoy_here]
+        game.defeat_reasons = [self.player_are_dead, self.all_convoy_is_dead]
         return game
 
     def init_lvl5_scene(self, clock):
