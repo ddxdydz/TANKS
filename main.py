@@ -10,13 +10,14 @@ import pickle
 
 
 WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 600, 600
-TITLE = 'BATTLE TANKS'
+TITLE = 'TANK BATTLES'
 TILE_SIZE = 40
 FPS = 40
 MAPS_DIR = 'data/maps'
 FONTS_DIR = 'data/fonts'
+GUI_THEMES_DIR = 'data/gui themes'
 SAVED_SESSION_DIR = 'data/saved sessions'
-SAVED_USER_INFO = 'data/saved user info'
+SAVED_USER_INFO_DIR = 'data/saved user info'
 
 # Control
 FORWARD = 91
@@ -61,66 +62,66 @@ user_info = {'sound_value': 100,
              'name': 'user_name',
              'high_scores': [('-', 0) for _ in range(10)]}
 
-main_menu_manager = pygame_gui.UIManager(WINDOW_SIZE)
+main_menu_manager = pygame_gui.UIManager(
+    WINDOW_SIZE, f'{GUI_THEMES_DIR}/start_manu_theme.json')
 game_pause_manager = pygame_gui.UIManager(WINDOW_SIZE)
 game_process_manager = pygame_gui.UIManager(WINDOW_SIZE)
 
-# Init main menu title
-title_size = 60
-title_font = pygame.font.Font(f'{FONTS_DIR}/Unicephalon.otf', title_size)
-title_text = title_font.render(TITLE, True, COLOR_TEXT)
-title_text_x = WINDOW_WIDTH // 2 - title_text.get_width() // 2
-title_text_y = 80
+# Init main menu title text
+title_size = 80
+title_font = pygame.font.Font(f'{FONTS_DIR}/Pixel Georgia.ttf', title_size)
+title_font.bold = 1
+title_text = [title_font.render(text, True, COLOR_TEXT) for text in TITLE.split()]
+title_text_height = sum([text.get_height() for text in title_text])
+title_text_y = 120
 
-# init set name menu buttons
-label_btn_size = (90, 30)
+# Init set name menu elements
+label_btn_size = (45, 26)
 entry_line_size = (150, 40)
 label = pygame_gui.elements.ui_label.UILabel(
     relative_rect=pygame.Rect((
         (WINDOW_WIDTH - label_btn_size[0] - entry_line_size[0]) // 2,
-        title_text_y + title_text.get_height()), label_btn_size),
-    text='YOUR NAME:',
+        title_text_y + title_text_height), label_btn_size),
+    text='NAME',
     manager=main_menu_manager)
 name_entry_line = pygame_gui.elements.UITextEntryLine(
     relative_rect=pygame.Rect((
         (WINDOW_WIDTH + label_btn_size[0] - entry_line_size[0]) // 2,
-        title_text_y + title_text.get_height()), entry_line_size),
+        title_text_y + title_text_height), entry_line_size),
     manager=main_menu_manager)
-name_entry_line.set_text_length_limit(16)
-name_entry_line.set_text('User_Name_3')
+name_entry_line.set_text_length_limit(15)
+
 # Init main menu buttons
-btn_size = (200, 50)
-indent_between_buttons = 10
+start_menu_buttons_intro = ['CONTINUE',
+                            'NEW GAME',
+                            'HIGH SCORES',
+                            'HOW TO PLAY',
+                            'EXIT']
+btn_size = (180, 41)
 indent_down = WINDOW_HEIGHT - 20
-indent_top = title_text_y + title_text.get_height() + label.rect.height
+indent_top = title_text_y + title_text_height + label.rect.height
 indent_left = 40
 indent_right = WINDOW_WIDTH - 40
 
-# Init menu list buttons
-intro_main_menu_text = ['CONTINUE',
-                        'NEW GAME',
-                        'HIGH SCORES',
-                        'HOW TO PLAY',
-                        'EXIT']
-sum_buttons_size = (btn_size[1] + indent_between_buttons) * len(intro_main_menu_text)
-dict_menu_buttons = dict()
-btn_menu_rect = pygame.Rect((
-    (WINDOW_WIDTH - btn_size[0]) // 2,
-    (WINDOW_HEIGHT + indent_top - sum_buttons_size) // 2), btn_size)
-for btn_txt in intro_main_menu_text:
-    dict_menu_buttons[btn_txt] = \
-        pygame_gui.elements.UIButton(
-            relative_rect=btn_menu_rect, text=btn_txt, manager=main_menu_manager)
-    btn_menu_rect.y += btn_size[1] + indent_between_buttons
+btn_x = (WINDOW_WIDTH - btn_size[0]) // 2
+btn_y = (WINDOW_HEIGHT + indent_top - (btn_size[1]) * 5) // 2
+btn_rect = pygame.Rect((btn_x, btn_y), btn_size)
+start_menu_btn_dict = dict()
+for btn_text in start_menu_buttons_intro:
+    start_menu_btn_dict[btn_text] = pygame_gui.elements.UIButton(
+        relative_rect=btn_rect, text=btn_text, manager=main_menu_manager)
+    btn_rect.y += btn_size[1]
 
 # Init sound buttons
 sound_btn_size = (40, 40)
-sound_slider_size = (190, 40)
+sound_slider_size = (130, 30)
 sound_btn = pygame_gui.elements.UIButton(
     relative_rect=pygame.Rect((indent_left, indent_down - sound_btn_size[1]), sound_btn_size),
-    text='SOUND', manager=main_menu_manager)
+    text='', manager=main_menu_manager)
 sound_value_slider = pygame_gui.elements.ui_horizontal_slider.UIHorizontalSlider(
-    relative_rect=pygame.Rect((indent_left + sound_btn_size[0], sound_btn.rect.y), sound_slider_size),
+    relative_rect=pygame.Rect((
+        indent_left + 5 + sound_btn_size[0],
+        sound_btn.rect.y + 5), sound_slider_size),
     value_range=(0, 100),
     start_value=100,
     manager=main_menu_manager)
@@ -128,11 +129,11 @@ music_btn = pygame_gui.elements.UIButton(
     relative_rect=pygame.Rect((
         indent_right - sound_btn_size[0],
         indent_down - sound_btn_size[1]), sound_btn_size),
-    text='MUSIC', manager=main_menu_manager)
+    text='', manager=main_menu_manager)
 music_value_slider = pygame_gui.elements.ui_horizontal_slider.UIHorizontalSlider(
     relative_rect=pygame.Rect((
-        indent_right - sound_btn_size[0] - sound_slider_size[0],
-        sound_btn.rect.y), sound_slider_size),
+        indent_right - 5 - sound_btn_size[0] - sound_slider_size[0],
+        sound_btn.rect.y + 5), sound_slider_size),
     value_range=(0, 100),
     start_value=100,
     manager=main_menu_manager)
@@ -168,6 +169,11 @@ heavy_tank_turret = pygame.transform.scale(load_image("heavy_turret.png", colork
 crash_tank = pygame.transform.scale(load_image("crached_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 bullet_0 = pygame.transform.scale(load_image("bullet_0.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 
+music_on_img = pygame.transform.scale(load_image("music_on.png"), sound_btn_size)
+sound_on_img = pygame.transform.scale(load_image("sound_on.png"), sound_btn_size)
+music_off_img = pygame.transform.scale(load_image("music_off.png"), sound_btn_size)
+sound_off_img = pygame.transform.scale(load_image("sound_off.png"), sound_btn_size)
+
 sprites_dict = {'Tank': (red_tank_hull, red_tank_turret),
                 'Beast': (beast_tank_hull, beast_tank_turret),
                 'Player': (green_tank_hull, green_tank_turret),
@@ -179,21 +185,37 @@ def get_player_coords():
     return player_coords
 
 
-def show_message(screen, message):
-    font = pygame.font.Font(None, 50)
-    text = font.render(message, True, (50, 70, 0))
-    text_w = text.get_width()
-    text_h = text.get_height()
-    text_x = WINDOW_WIDTH // 2 - text_w // 2
-    text_y = WINDOW_HEIGHT // 2 - text_h // 2
-    pygame.draw.rect(screen, (200, 150, 50), (text_x - 10, text_y - 10,
-                                              text_w + 20, text_h + 20))
-    screen.blit(text, (text_x, text_y))
-
-
 def terminate():
     pygame.quit()
     sys.exit()
+
+
+def save_user_info():
+    with open(f'{SAVED_USER_INFO_DIR}/save.dat', 'wb') as file:
+        pickle.dump({'name': name_entry_line.text,
+                     'sound_value': sound_value_slider.current_value,
+                     'music_value': music_value_slider.current_value,
+                     'high_scores': user_info['high_scores']}, file)
+
+
+def load_user_info():
+    global user_info
+    with open(f'{SAVED_USER_INFO_DIR}/save.dat', 'rb') as file:
+        user_info = pickle.load(file)
+    name_entry_line.set_text(user_info['name'])
+    sound_value_slider.set_current_value(user_info['sound_value'])
+    music_value_slider.set_current_value(user_info['music_value'])
+
+
+def save_game(game):
+    with open(f'{SAVED_SESSION_DIR}/save.dat', 'wb') as file:
+        pickle.dump(game, file)
+
+
+def load_saved_game():
+    with open(f'{SAVED_SESSION_DIR}/save.dat', 'rb') as file:
+        game = pickle.load(file)
+    return game
 
 
 class Map:
@@ -811,42 +833,14 @@ class Game:
     def end_game_and_return_status(self, screen):
         results = [reason() for reason in self.defeat_reasons]
         if any(results):
-            show_message(screen, 'Вы проиграли.')
+            show_game_message(screen, 'YOU LOST!', 'press button to continue')
             self.end_count += 1
             return 'lose'
         results = [mission() for mission in self.missions]
         if any(results):
-            show_message(screen, 'Победа!')
+            show_game_message(screen, 'YOU WON!', 'press button to continue')
             self.end_count += 1
             return 'win'
-
-
-def save_user_info():
-    with open(f'{SAVED_USER_INFO}/save.dat', 'wb') as file:
-        pickle.dump({'name': name_entry_line.text,
-                     'sound_value': sound_value_slider.current_value,
-                     'music_value': music_value_slider.current_value,
-                     'high_scores': user_info['high_scores']}, file)
-
-
-def load_user_info():
-    global user_info
-    with open(f'{SAVED_USER_INFO}/save.dat', 'rb') as file:
-        user_info = pickle.load(file)
-    name_entry_line.set_text(user_info['name'])
-    sound_value_slider.set_current_value(user_info['sound_value'])
-    music_value_slider.set_current_value(user_info['music_value'])
-
-
-def save_game(game):
-    with open(f'{SAVED_SESSION_DIR}/save.dat', 'wb') as file:
-        pickle.dump(game, file)
-
-
-def load_saved_game():
-    with open(f'{SAVED_SESSION_DIR}/save.dat', 'rb') as file:
-        game = pickle.load(file)
-    return game
 
 
 class Camera:
@@ -884,133 +878,6 @@ class Camera:
         if dy > 0:
             dy = 0
         self.rect = pygame.Rect(dx, dy, self.width, self.height)
-
-
-def show_highscore_board():
-    # init fon
-    fon = pygame.Surface((WINDOW_WIDTH * 0.7, WINDOW_HEIGHT * 0.7))
-    fon.fill(pygame.Color((255, 0, 0)))
-    screen.blit(fon, ((WINDOW_WIDTH - fon.get_width()) // 2,
-                      (WINDOW_HEIGHT - fon.get_height()) // 2))
-
-    draw_the_dialog_background('РЕКОРДЫ')
-    draw_the_dialog_background('В РАЗРАБОТКЕ...', y=250)
-    draw_the_dialog_background('press button', y=480)
-
-
-def show_info_menu():
-    # init fon
-    fon = pygame.Surface((WINDOW_WIDTH * 0.7, WINDOW_HEIGHT * 0.7))
-    fon.fill(pygame.Color((0, 255, 0)))
-    screen.blit(fon, ((WINDOW_WIDTH - fon.get_width()) // 2,
-                      (WINDOW_HEIGHT - fon.get_height()) // 2))
-
-    draw_the_dialog_background('КАК ИГРАТЬ')
-    draw_the_dialog_background('В РАЗРАБОТКЕ...', y=250)
-    draw_the_dialog_background('press button', y=480)
-
-
-def draw_the_dialog_background(message, y=150):
-    # init title
-    font = pygame.font.Font(f'{FONTS_DIR}/Unicephalon.otf', 20)
-    text = font.render(message, True, COLOR_TEXT)
-    text_x = (WINDOW_WIDTH - text.get_width()) // 2
-    text_y = y
-    screen.blit(text, (text_x, text_y))
-
-
-def show_confirmation_dialog(manager):
-    dialog_size = (260, 200)
-    confirmation_dialog = pygame_gui.windows.UIConfirmationDialog(
-        rect=pygame.Rect(
-            ((WINDOW_WIDTH - dialog_size[0]) // 2,
-             (WINDOW_HEIGHT - dialog_size[1]) // 2),
-            dialog_size),
-        manager=manager,
-        window_title='Подтвеждение',
-        action_long_desc='Вы уверены, что хотите вытйти?',
-        action_short_name='OK',
-        blocking=True)
-    return confirmation_dialog
-
-
-def start_screen():
-    def draw_the_main_background():
-        # init fon
-        fon = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
-        fon.fill(pygame.Color((0, 0, 0)))
-        screen.blit(fon, (0, 0))
-
-        # init title
-        screen.blit(title_text, (title_text_x, title_text_y))
-
-    draw_the_main_background()
-    is_open_a_conf_dialog = False
-    do_show_info = False
-    do_show_scores = False
-    while True:
-        time_delta = clock.tick(60) / 1000.0
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                if not is_open_a_conf_dialog:
-                    show_confirmation_dialog(main_menu_manager)  # TODO исправить баг с диалогом
-                    is_open_a_conf_dialog = True
-            if event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
-                do_show_info = False
-                do_show_scores = False
-            if event.type == pygame.USEREVENT:
-                if event.user_type == pygame_gui.UI_CONFIRMATION_DIALOG_CONFIRMED:
-                    save_user_info()
-                    terminate()  # exit
-                if event.user_type == pygame_gui.UI_TEXT_ENTRY_FINISHED:
-                    print(event.text)
-                if event.user_type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
-                    print(event.text)
-                if event.user_type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
-                    pass
-                if event.user_type == pygame_gui.UI_BUTTON_ON_HOVERED:
-                    pass
-                if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
-                    is_open_a_conf_dialog = False
-                    if event.ui_element == dict_menu_buttons['CONTINUE']:
-                        return load_saved_game()
-                    elif event.ui_element == dict_menu_buttons['NEW GAME']:
-                        return False  # start new game
-                    elif event.ui_element == dict_menu_buttons['HIGH SCORES']:
-                        do_show_scores = True
-                    elif event.ui_element == dict_menu_buttons['HOW TO PLAY']:
-                        do_show_info = True
-                    elif event.ui_element == dict_menu_buttons['EXIT']:
-                        if not is_open_a_conf_dialog:
-                            show_confirmation_dialog(main_menu_manager)  # TODO исправить баг с диалогом
-                            is_open_a_conf_dialog = True
-                    elif event.ui_element == sound_btn:
-                        sound_value_slider.show()
-                        music_value_slider.hide()
-                    elif event.ui_element == music_btn:
-                        sound_value_slider.hide()
-                        music_value_slider.show()
-            if pygame.mouse.get_pos()[1] < 525:
-                if sound_value_slider.visible:
-                    sound_value_slider.hide()
-                if music_value_slider.visible:
-                    music_value_slider.hide()
-
-            main_menu_manager.process_events(event)
-        main_menu_manager.update(time_delta)
-
-        draw_the_main_background()
-
-        main_menu_manager.draw_ui(screen)
-
-        if do_show_scores:
-            show_highscore_board()
-        if do_show_info:
-            show_info_menu()
-
-        pygame.display.flip()
-        clock.tick(FPS)
 
 
 class LevelLoader:
@@ -1110,6 +977,159 @@ class LevelLoader:
         return game
 
 
+def show_highscore_board():
+    def draw_the_dialog_background(message, y=150):
+        # init title
+        font = pygame.font.Font(f'{FONTS_DIR}/Unicephalon.otf', 20)
+        text = font.render(message, True, COLOR_TEXT)
+        text_x = (WINDOW_WIDTH - text.get_width()) // 2
+        text_y = y
+        screen.blit(text, (text_x, text_y))
+
+    # init fon
+    fon = pygame.Surface((WINDOW_WIDTH * 0.7, WINDOW_HEIGHT * 0.7))
+    fon.fill(pygame.Color((255, 0, 0)))
+    screen.blit(fon, ((WINDOW_WIDTH - fon.get_width()) // 2,
+                      (WINDOW_HEIGHT - fon.get_height()) // 2))
+
+    draw_the_dialog_background('РЕКОРДЫ')
+    draw_the_dialog_background('В РАЗРАБОТКЕ...', y=250)
+    draw_the_dialog_background('press button', y=480)
+
+
+def show_info_menu():
+    def draw_the_dialog_background(message, y=150):
+        # init title
+        font = pygame.font.Font(f'{FONTS_DIR}/Unicephalon.otf', 20)
+        text = font.render(message, True, COLOR_TEXT)
+        text_x = (WINDOW_WIDTH - text.get_width()) // 2
+        text_y = y
+        screen.blit(text, (text_x, text_y))
+    # init fon
+    fon = pygame.Surface((WINDOW_WIDTH * 0.7, WINDOW_HEIGHT * 0.7))
+    fon.fill(pygame.Color((0, 255, 0)))
+    screen.blit(fon, ((WINDOW_WIDTH - fon.get_width()) // 2,
+                      (WINDOW_HEIGHT - fon.get_height()) // 2))
+
+    draw_the_dialog_background('КАК ИГРАТЬ')
+    draw_the_dialog_background('В РАЗРАБОТКЕ...', y=250)
+    draw_the_dialog_background('press button', y=480)
+
+
+def show_confirmation_dialog(manager):
+    dialog_size = (260, 200)
+    confirmation_dialog = pygame_gui.windows.UIConfirmationDialog(
+        rect=pygame.Rect(
+            ((WINDOW_WIDTH - dialog_size[0]) // 2,
+             (WINDOW_HEIGHT - dialog_size[1]) // 2),
+            dialog_size),
+        manager=manager,
+        window_title='Подтвеждение',
+        action_long_desc='Вы уверены, что хотите вытйти?',
+        action_short_name='OK',
+        blocking=True)
+    return confirmation_dialog
+
+
+def show_game_message(surface, main_message, *secondary_messages):
+    # Darken the background:
+    transparent_dark_surface = pygame.Surface(WINDOW_SIZE)
+    transparent_dark_surface.fill(pygame.Color(0, 0, 0))
+    transparent_dark_surface.set_alpha(220)
+    surface.blit(transparent_dark_surface, (0, 0))
+
+    # Show message:
+    main_font = pygame.font.Font(f'{FONTS_DIR}/Thintel.ttf', 120)
+    second_font = pygame.font.Font(f'{FONTS_DIR}/Thintel.ttf', 30)
+    main_text = main_font.render(main_message, True, (255, 255, 255))
+    secondary_messages = \
+        list(map(lambda elem: second_font.render(
+            elem, True, (255, 255, 255)), secondary_messages))
+    text_x = WINDOW_WIDTH // 2 - main_text.get_width() // 2
+    text_y = WINDOW_HEIGHT // 2 - \
+             (main_text.get_height() + sum([
+                 text.get_height() for text in secondary_messages])) // 2
+    surface.blit(main_text, (text_x, text_y))
+    text_y += main_text.get_height()
+    for message in secondary_messages:  # show secondary messages
+        text_x = WINDOW_WIDTH // 2 - message.get_width() // 2
+        surface.blit(message, (text_x, text_y))
+        text_y += message.get_height()
+
+
+def start_screen():
+    def draw_the_main_background():
+        # init fon
+        fon = pygame.Surface(WINDOW_SIZE)
+        fon.fill(pygame.Color((0, 0, 0)))
+        screen.blit(fon, (0, 0))
+
+        # init title
+        y = title_text_y
+        for text in title_text:
+            screen.blit(text, ((WINDOW_WIDTH - text.get_width()) // 2, y))
+            y += text.get_height()
+
+    draw_the_main_background()
+    do_show_info = False
+    do_show_scores = False
+    while True:
+        time_delta = clock.tick(60) / 1000.0
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                save_user_info()
+                terminate()  # exit
+            if event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
+                do_show_info = False
+                do_show_scores = False
+            if event.type == pygame.USEREVENT:
+                if event.user_type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
+                    pass
+                if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
+                    if event.ui_element == start_menu_btn_dict['CONTINUE']:
+                        return load_saved_game()
+                    elif event.ui_element == start_menu_btn_dict['NEW GAME']:
+                        return getattr(LevelLoader(), f'init_lvl{1}_scene')()
+                    elif event.ui_element == start_menu_btn_dict['HIGH SCORES']:
+                        do_show_scores = True
+                    elif event.ui_element == start_menu_btn_dict['HOW TO PLAY']:
+                        do_show_info = True
+                    elif event.ui_element == start_menu_btn_dict['EXIT']:
+                        save_user_info()
+                        terminate()  # exit
+                    elif event.ui_element == sound_btn:
+                        sound_value_slider.show()
+                        music_value_slider.hide()
+                    elif event.ui_element == music_btn:
+                        sound_value_slider.hide()
+                        music_value_slider.show()
+            if pygame.mouse.get_pos()[1] < 525:
+                if sound_value_slider.visible:
+                    sound_value_slider.hide()
+                if music_value_slider.visible:
+                    music_value_slider.hide()
+            sound_btn.set_image(
+                sound_on_img if sound_value_slider.current_value else sound_off_img)
+            music_btn.set_image(
+                music_on_img if music_value_slider.current_value else music_off_img)
+
+            main_menu_manager.process_events(event)
+        main_menu_manager.update(time_delta)
+
+        draw_the_main_background()
+
+        main_menu_manager.draw_ui(screen)
+
+        if do_show_scores:
+            show_highscore_board()
+        if do_show_info:
+            show_info_menu()
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
 def main():
     lvl_count = 1
     lvl_loader = LevelLoader()
@@ -1118,16 +1138,24 @@ def main():
     # Главный игровой цикл:
     running = True
     load_user_info()
-    is_continue = start_screen()
-    if is_continue:
-        game = is_continue
+    game = start_screen()
+    is_paused = False
     while running:
         # Цикл приема и обработки сообщений:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            if event.type in (pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN):
+                if is_paused:
+                    is_paused = False
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            continue
+                        elif event.key == pygame.K_RETURN:
+                            # save_game(game)
+                            game = start_screen()
+                            break
             if event.type == pygame.KEYDOWN:
-
                 # if event.key == pygame.K_SPACE:
                 #     lvl_count += 1
                 #     if lvl_count > 5:
@@ -1137,16 +1165,16 @@ def main():
                 # Features for testing:
                 if event.key == pygame.K_h:
                     game.controlled_tanks[0].health = 999
-                elif event.key == pygame.K_g:
-                    save_game(game)
-                elif event.key == pygame.K_l:
-                    game = load_saved_game()
                 elif event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5]:
                     lvl_count = event.unicode
                     game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')()
+
                 elif event.key == pygame.K_F12:
                     now = ''.join([elem for elem in str(dt.datetime.now()) if elem.isdigit()])
-                    pygame.image.save(screen, f'screenshots/screenshot_{now}.png')
+                    pygame.image.save(screen, f'data/screenshots/screenshot_{now}.png')
+                elif event.key == pygame.K_ESCAPE and not is_paused:
+                    show_game_message(screen, 'PAUSE', 'press Enter to exit')
+                    is_paused = True
 
         # if game.end_count == 5:
         #     pygame.time.delay(3000)
@@ -1154,10 +1182,11 @@ def main():
         #         lvl_count += 1
         #     game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')()
 
-        game.render(screen)
-        game.update_controlled_tanks()
-        game.update_uncontrolled_tanks()
-        # game.end_game_and_return_status(screen)
+        if not is_paused:
+            game.render(screen)
+            game.update_controlled_tanks()
+            game.update_uncontrolled_tanks()
+            game.end_game_and_return_status(screen)
 
         pygame.display.flip()
         clock.tick(FPS)
