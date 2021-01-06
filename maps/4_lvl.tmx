@@ -78,13 +78,6 @@
     <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>
-  <object id="4" name="Tank" x="800" y="2160" width="40" height="40">
-   <properties>
-    <property name="destination" value="detect range(6, 17), range(48, 56)"/>
-    <property name="rotate_hull" type="int" value="180"/>
-    <property name="rotate_turret" type="int" value="0"/>
-   </properties>
-  </object>
   <object id="5" name="Convoy" x="400" y="200" width="40" height="40">
    <properties>
     <property name="destination" value="pos (23, 61)"/>
@@ -136,20 +129,6 @@
     <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>
-  <object id="14" name="Tank" x="80" y="880" width="40" height="40">
-   <properties>
-    <property name="destination" value="detect range(1, 26), range(30, 49)"/>
-    <property name="rotate_hull" type="int" value="90"/>
-    <property name="rotate_turret" type="int" value="0"/>
-   </properties>
-  </object>
-  <object id="15" name="Tank" x="120" y="1720" width="40" height="40">
-   <properties>
-    <property name="destination" value="detect range(1, 26), range(30, 49)"/>
-    <property name="rotate_hull" type="int" value="90"/>
-    <property name="rotate_turret" type="int" value="0"/>
-   </properties>
-  </object>
   <object id="16" name="Tank" x="80" y="1440" width="40" height="40">
    <properties>
     <property name="destination" value="detect range(1, 26), range(30, 49)"/>
@@ -168,13 +147,6 @@
    <properties>
     <property name="destination" value="detect range(6, 17), range(48, 56)"/>
     <property name="rotate_hull" type="int" value="0"/>
-    <property name="rotate_turret" type="int" value="0"/>
-   </properties>
-  </object>
-  <object id="19" name="Tank" x="200" y="2320" width="40" height="40">
-   <properties>
-    <property name="destination" value="detect range(6, 17), range(48, 56)"/>
-    <property name="rotate_hull" type="int" value="270"/>
     <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>

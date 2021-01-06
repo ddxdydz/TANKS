@@ -18,4 +18,8 @@
  <tile id="13" type="break"/>
  <tile id="14" type="break"/>
  <tile id="15" type="unbreak_closed"/>
+ <tile id="16" type="water"/>
+ <tile id="17" type="free"/>
+ <tile id="18" type="break"/>
+ <tile id="19" type="free"/>
 </tileset>

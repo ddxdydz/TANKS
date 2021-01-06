@@ -1,10 +1,9 @@
 import os
 import sys
 import pygame
-from queue import Queue
+from queue import Queue, PriorityQueue
 from random import random, choice
 import pytmx
-from copy import deepcopy
 from sprites import *
 
 WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 600, 600
@@ -106,6 +105,7 @@ class Map:
                 elif type_of_tile == 'unbreak' and id_of_tyle not in self.unbreak_tiles:
                     self.unbreak_tiles.append(id_of_tyle)
         self.shadow = []
+        self.lava = []
 
     def render(self, screen):
         screen.fill('#000000')
@@ -113,34 +113,42 @@ class Map:
         for layer in self.tiled_map.tmx_data.visible_layers:
             if isinstance(layer, pytmx.TiledTileLayer):
                 for x, y, gid in layer:
-                    gid = self.map[y][x]
-                    tank_stand_on = False
-                    # Если на блоке стоит танк, то блок под ним отрисовывается первым свободным из списка
-                    if not isinstance(gid, int):
-                        gid = self.get_free_block(x, y)
-                        tank_stand_on = True
+                    # Оптимизация рендера, чтобы тот не отрисовывал не входящие в камеру объекты
+                    if x in range(abs(self.camera.rect.x // TILE_SIZE), self.camera.rect.width)\
+                            and y in range(abs(self.camera.rect.y // TILE_SIZE), self.camera.rect.height):
+                        gid = self.map[y][x]
+                        tank_stand_on = False
+                        if not isinstance(gid, int):
+                            gid = self.get_free_block(x, y)
+                            tank_stand_on = True
 
-                    tile = ti(gid)
-                    if tile:
-                        tile_rect = pygame.Rect(0, 0, x * self.tiled_map.tmx_data.tilewidth,
-                                                y * self.tiled_map.tmx_data.tileheight)
-                        self.camera.apply(tile_rect)
-                        screen.blit(tile, (tile_rect.width, tile_rect.height))
+                        tile = ti(gid)
+                        if tile:
+                            tile_rect = pygame.Rect(0, 0, x * self.tiled_map.tmx_data.tilewidth,
+                                                    y * self.tiled_map.tmx_data.tileheight)
+                            self.camera.apply(tile_rect)
+                            screen.blit(tile, (tile_rect.width, tile_rect.height))
 
-                        if tank_stand_on:
-                            screen.blit(self.map[y][x].image, (tile_rect.width, tile_rect.height))
-                            if getattr(self.map[y][x], 'tank_turret', False):
-                                screen.blit(self.map[y][x].tank_turret.image, (tile_rect.width, tile_rect.height))
-                            if self.map[y][x].respawn:
-                                if self.map[y][x].respawn_time <= 90:
-                                    self.map[y][x] = self.get_free_block(x, y)
+                            if (x, y) in self.lava:
+                                lava = pygame.Surface((self.tiled_map.tmx_data.tilewidth,
+                                                         self.tiled_map.tmx_data.tileheight))
+                                lava.fill(pygame.Color(255, 0, 0))
+                                screen.blit(lava, (tile_rect.width, tile_rect.height))
 
-                        if (x, y) in self.shadow:
-                            shadow = pygame.Surface((self.tiled_map.tmx_data.tilewidth,
-                                                     self.tiled_map.tmx_data.tileheight))
-                            shadow.fill(pygame.Color(0, 0, 0))
-                            shadow.set_alpha(99)
-                            screen.blit(shadow, (tile_rect.width, tile_rect.height))
+                            if tank_stand_on:
+                                screen.blit(self.map[y][x].image, (tile_rect.width, tile_rect.height))
+                                if getattr(self.map[y][x], 'tank_turret', False):
+                                    screen.blit(self.map[y][x].tank_turret.image, (tile_rect.width, tile_rect.height))
+                                if self.map[y][x].respawn:
+                                    if self.map[y][x].respawn_time <= 90:
+                                        self.map[y][x] = self.get_free_block(x, y)
+
+                            if (x, y) in self.shadow:
+                                shadow = pygame.Surface((self.tiled_map.tmx_data.tilewidth,
+                                                         self.tiled_map.tmx_data.tileheight))
+                                shadow.fill(pygame.Color(0, 0, 0))
+                                shadow.set_alpha(99)
+                                screen.blit(shadow, (tile_rect.width, tile_rect.height))
 
     def get_tile_id(self, position):
         return self.map[position[1]][position[0]]
@@ -170,14 +178,16 @@ class Map:
         player_list = []
         tank_list = []
         for tile_object in self.tiled_map.tmx_data.objects:
-            if tile_object.name == 'Shadow':
+            if tile_object.name in ['Shadow', 'Lava']:
+                if tile_object.name == 'Shadow':
+                    special_group = self.shadow
+                else:
+                    special_group = self.lava
                 x, y, w, h = int(tile_object.x // TILE_SIZE), int(tile_object.y // TILE_SIZE),\
                              int(tile_object.width // TILE_SIZE), int(tile_object.height // TILE_SIZE)
-                # print('shadow:', x, y, w, h)
                 for y_step in range(y, y + h):
                     for x_step in range(x, x + w):
-                        # print((x_step, y_step))
-                        self.shadow.append((x_step, y_step))
+                        special_group.append((x_step, y_step))
 
             else:
                 rotate_turret, rotate_hull = tile_object.properties['rotate_turret'],\
@@ -251,9 +261,10 @@ class Game:
         self.clock = clock
         self.camera = self.map.camera
 
-        # Инициализация миссий и "причин для поражения"
+        # Инициализация миссий, "причин для поражения" и событий
         self.defeat_reasons = []
         self.missions = []
+        self.events = []
 
         # Группы танков
         self.sprites_group = sprites_group        
@@ -364,9 +375,11 @@ class Game:
                     destination = destination[0](*destination[1])
                     if destination != None:
                         self.destinations[tank] = destination
+                        if callable(destination):
+                            destination = destination()
             # нахождение цели
             if destination != None:
-                path, status = self.find_path(tank.get_position(), destination)
+                path = self.find_path(tank.get_position(), destination)
 
             # Поскольку бот соображает слишком быстро, задержка через рандом должна снизить его скорость
             if random() > 1 - tank.accuracy:
@@ -375,18 +388,9 @@ class Game:
             if random() > 1 - tank.speed:
                 if destination != None:
                     if len(path) > 3:
-                        self.calculate_uncontrolled_tank_move(path, destination, tank)
+                        self.calculate_uncontrolled_tank_move(path, tank)
             x, y = tank.get_position()
             self.map.map[y][x] = tank
-            '''if tank.__repr__() == 'Convoy':
-                count_tile = 1
-                for y_step in range(y - 1, y + 1):
-                    for x_step in range(x - 1, x + 1):
-                        if self.map.is_free((x_step, y_step)):
-                            count_tile += 1
-                            self.map.map[y_step][x_step] = tank
-                        if count_tile == 4:
-                            break'''
 
     def calculate_uncontrolled_tank_turret(self, tank):
         def break_check(cell):
@@ -464,7 +468,7 @@ class Game:
                     tank.turn_turret_left()
                 return None
 
-    def calculate_uncontrolled_tank_move(self, path, destination, tank):
+    def calculate_uncontrolled_tank_move(self, path, tank):
         def turn_hull_optimal(degree):
             if rotate_hull + 90 == degree:
                 tank.turn_left()
@@ -510,14 +514,35 @@ class Game:
         return tuple(next_step[i] - this_step[i] for i in range(len(this_step)))
 
     def find_path(self, start, destination):
+        def calculate_distance_for_destination(cell):
+            a, b = abs(cell[0] - destination[0]) + 1, abs(cell[1] - destination[1])
+            c = pow((a ** 2 + b ** 2), 0.5)
+
+            return c
+
+        def get_neighbours(cell):
+            neighbours = []
+            pathfinder = self.map.map[start[1]][start[0]]
+            for y in (cell[1] - 1, cell[1], cell[1] + 1):
+                if y == cell[1]:
+                    x_list = (cell[0] - 1, cell[0] + 1)
+                else:
+                    x_list = (cell[0], cell[0])
+                for x in x_list:
+                    if all([(0 <= y < len(self.map.map)), (0 <= x < len(self.map.map[0]))]):
+                        if pathfinder.__repr__() == 'Convoy':
+                            if self.map.map[y][x] == self.map.free_tiles[0]\
+                                    or (x, y) == destination:
+                                neighbours.append((x, y))
+                        elif self.map.is_free((x, y)) or (x, y) == destination:
+                            neighbours.append((x, y))
+            return neighbours
+
         if start == destination:
-            return [start, start, start, start], 'complete'
-        status = 'full'
+            return [start, start, start, start]
         # создаем граф, используя соседние клетки
         graph = {}
-        for y, row in enumerate(self.map.map):
-            for x, column in enumerate(row):
-                graph[(x, y)] = graph.get((x, y), []) + self.check_neighbour(x, y, start, destination)
+        count = 0
 
         queue = Queue()
         queue.put(start)
@@ -527,7 +552,7 @@ class Game:
         # для каждой клетки в очереди записывается клетка, из которой они пришли
         while not queue.empty():
             current_cell = queue.get()
-            cells = graph[current_cell]
+            cells = get_neighbours(current_cell)
             for cell in cells:
                 # если графа нет в "откуда пришел", то добавляем ему точку, откуда он пришел, и кидаем в очередь
                 if cell not in came_from:
@@ -539,46 +564,16 @@ class Game:
         while current_cell != start:
             # если у точки дислокации нет точки, откуда она пришла. Такое бывает, если старт окружают заборы
             if current_cell not in came_from:
-                status = 'incomplete'
-                segment_of_broken_path = -1
-                while current_cell not in came_from:
-                    current_cell = list(came_from.keys())[segment_of_broken_path]
-                    segment_of_broken_path -= 1
+                distances = [(cell, calculate_distance_for_destination(cell)) for cell in came_from.keys()]
+                current_cell = min(distances, key=lambda x: x[1])[0]
+                path = [current_cell]
 
-            current_cell = came_from[current_cell]
+            if current_cell != start:
+                current_cell = came_from[current_cell]
             path.append(current_cell)
         path.append(start)
         path.reverse()
-        return path[:5], status
-
-    def check_neighbour(self, x, y, pathfinder_coords, destination):
-        cells_list = [(x, y)]
-        pathfinder = self.map.map[pathfinder_coords[1]][pathfinder_coords[0]]
-        is_next_neighbor = lambda p1, p2: True if all([(0 <= p2 < len(self.map.map)),
-                                                       (0 <= p1 < len(self.map.map[0]))]) else False
-        while True:
-            cells_list_copy = cells_list.copy()
-            cells_list = []
-            for coords in cells_list_copy:
-                x, y = coords
-                if is_next_neighbor(*coords):
-                    for y_step in (y - 1, y, y + 1):
-                        if y_step == y:
-                            x_list = (x - 1, x + 1)
-                        else:
-                            x_list = (x, x)
-                        for x_step in x_list:
-                            if is_next_neighbor(x_step, y_step):
-                                neighbour_cell = self.map.map[y_step][x_step]
-                                if pathfinder.__repr__() == 'Convoy':
-                                    if neighbour_cell == self.map.free_tiles[0]\
-                                            or self.map.get_type_of_tile(x_step, y_step) == 'free_control_point':
-                                        cells_list.append((x_step, y_step))
-                                elif (self.map.is_free((x_step, y_step)) or
-                                    destination == (x_step, y_step))\
-                                        and (x_step, y_step) != pathfinder_coords:
-                                        cells_list.append((x_step, y_step))
-            return cells_list
+        return path
 
     def end_game_and_return_status(self, screen):
         results = [reason() for reason in self.defeat_reasons]
@@ -591,6 +586,9 @@ class Game:
             show_message(screen, 'Победа!')
             self.end_count += 1
             return 'win'
+
+    def make_events(self, clock):
+        events = [event() for event in self.events]
 
 
 class Camera:
@@ -644,12 +642,16 @@ def show_message(screen, message):
 
 class LevelLoader:
     def init_reasons_and_missions(self, game):
+        def debug_print_fps():
+            print('clock.fps =', game.clock.get_fps())
+
         self.stand_on_control_point = lambda: game.map.get_type_of_tile(get_player_coords()[0],
                                                            get_player_coords()[1]) == 'free_control_point'
 
         self.all_bots_are_dead = lambda: len(game.uncontrolled_tanks) == 0
         self.player_are_dead = lambda: game.controlled_tanks[0].is_crashed
-        self.all_convoy_is_dead = lambda: [i.__repr__() for i in game.uncontrolled_tanks].count('Convoy') < 2
+        self.all_convoy_is_dead = lambda: [i.__repr__() for i in game.uncontrolled_tanks].count('Convoy') < 2        
+        game.events.append(debug_print_fps)
 
     def init_lvl1_scene(self, clock):
         # Формирование кадра(команды рисования на холсте):
@@ -679,6 +681,10 @@ class LevelLoader:
         return game
 
     def init_lvl3_scene(self, clock):
+        def open_door():
+            if all(cell in game.map.free_tiles for cell in sum([game.map.map[23][1:3], game.map.map[24][1:3]], [])):
+                game.map.map[6][19] = game.map.free_tiles[0]
+
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("3_lvl.tmx")
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
@@ -686,6 +692,7 @@ class LevelLoader:
         bullets = []
 
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        game.events.append(open_door)
 
         self.init_reasons_and_missions(game)
         game.missions = [self.stand_on_control_point]
@@ -700,6 +707,8 @@ class LevelLoader:
         bullets = []
 
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+
+        self.init_reasons_and_missions(game)
 
         self.init_reasons_and_missions(game)
         convoy_here = lambda: [i.__repr__() for i in sum([game.map.map[60][22:26], game.map.map[61][22:26]], [])].count('Convoy') == 2
@@ -722,6 +731,11 @@ class LevelLoader:
         return game
 
     def init_lvl6_scene(self, clock):
+        def open_door():
+            if all(cell in game.map.free_tiles for cell in sum([game.map.map[9][19:21], game.map.map[10][19:21]], [])):
+                game.map.map[21][27] = game.map.free_tiles[0]
+            else:
+                print(sum([game.map.map[9][1:3], game.map.map[10][1:3]], []))
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("6_lvl.tmx")
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
@@ -729,6 +743,7 @@ class LevelLoader:
         bullets = []
 
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        game.events.append(open_door)
 
         self.init_reasons_and_missions(game)
         game.missions = [self.stand_on_control_point]
@@ -743,6 +758,53 @@ class LevelLoader:
         bullets = []
 
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+
+        self.init_reasons_and_missions(game)
+        game.missions = [self.stand_on_control_point]
+        game.defeat_reasons = [self.player_are_dead]
+        return game
+
+    def init_lvl8_scene(self, clock):
+        def open_door():
+            if all(cell in game.map.free_tiles for cell in sum([game.map.map[21][2:4], game.map.map[22][2:4],
+                                                                game.map.map[21][6:8], game.map.map[22][6:8]], [])):
+                game.map.map[23][17] = game.map.free_tiles[0]
+                game.map.map[33][17] = game.map.free_tiles[0]
+                game.map.shadow.append((17, 23))
+
+        # Формирование кадра(команды рисования на холсте):
+        main_map = Map("8_lvl.tmx")
+        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+
+        bullets = []
+
+        game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        self.init_reasons_and_missions(game)
+
+        game.events.append(open_door)
+
+        game.missions = [lambda: (17, 33) == get_player_coords()]
+        game.defeat_reasons = [self.player_are_dead]
+        return game
+
+    def init_lvl9_scene(self, clock):
+        def shadow_kill_tanks():
+            for group in [game.uncontrolled_tanks, game.controlled_tanks]:
+                for tank in group:
+                    if tank.get_position() in game.map.lava:
+                        tank.destroy_the_tank(group)
+
+        # Формирование кадра(команды рисования на холсте):
+        main_map = Map("9_lvl.tmx")
+        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+
+        bullets = []
+
+        game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+
+        shadow_spread = lambda: game.map.lava.extend([(x, game.map.lava[-1][1] + 1) for x in range(1, 14)])\
+            if int(str(pygame.time.get_ticks())[-3:]) < 100 else None
+        game.events.extend([shadow_spread, shadow_kill_tanks])
 
         self.init_reasons_and_missions(game)
         game.missions = [self.stand_on_control_point]
@@ -768,10 +830,9 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    lvl_count += 1
-                    if lvl_count > 10:
-                        lvl_count = 1
+                if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5,
+                                 pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9]:
+                    lvl_count = int(event.unicode)
                     game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')(clock)
                 elif event.key == pygame.K_h:
                     game.controlled_tanks[0].health = 999
@@ -786,6 +847,7 @@ def main():
         game.render(screen)
         game.update_controlled_tanks()
         game.update_uncontrolled_tanks()
+        game.make_events(clock)
         game.end_game_and_return_status(screen)
 
         pygame.display.flip()
