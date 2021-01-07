@@ -1,7 +1,7 @@
 import os
 import sys
 import pygame
-from queue import Queue, PriorityQueue
+from queue import Queue
 from random import random, choice
 import pytmx
 from sprites import *
@@ -10,6 +10,7 @@ WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 600, 600
 TILE_SIZE = 40
 FPS = 15
 MAPS_DIR = "maps"
+SOUND_DIR = 'sounds'
 
 # Control
 FORWARD = 91
@@ -19,6 +20,10 @@ TURN_LEFT = 94
 TURN_RIGHT_TURRET = 95
 TURN_LEFT_TURRET = 96
 SHOOT = 97
+
+# Sound volume
+PLAYER_MOVEMENTS = 0.5
+EXPLOSIONS = 0.3
 
 # Control keys dicts
 CONTROL_KEYS_V1 = \
@@ -56,6 +61,13 @@ def set_player_coords(coords):
         file.seek(0)
         file.write(str(coords))
         file.close()
+
+
+def play_background_music(name):
+    pygame.mixer.music.stop()
+    pygame.mixer.music.load(os.path.join(SOUND_DIR, 'music', f'{name}.mp3'))
+    pygame.mixer.music.set_volume(0.7)
+    pygame.mixer.music.play(loops=-1)
 
 
 def load_image(name, colorkey=None):
@@ -264,7 +276,7 @@ class Game:
         self.events = []
 
         # Группы танков
-        self.sprites_group = sprites_group        
+        self.sprites_group = sprites_group
         self.controlled_tanks, self.uncontrolled_tanks,\
         self.destinations = (self.map.give_player_list_and_tanks_list_and_destinations(sprites_group[0]))
 
@@ -292,6 +304,9 @@ class Game:
                 if 'water' not in self.map.get_type_of_tile(bullet_x, bullet_y):
                     del self.bullets[self.bullets.index(bullet)]
                     self.destruct_cell(bullet_x, bullet_y)
+                    bullet.sounds_break()
+                else:
+                    bullet.sounds_unbreak()
 
     def destruct_cell(self, bullet_x, bullet_y):
         if getattr(self.map.map[bullet_y][bullet_x], 'team', False):
@@ -309,6 +324,7 @@ class Game:
         elif self.map.get_type_of_tile(bullet_x, bullet_y) == 'tnt':
             self.make_reflect_explode(bullet_x, bullet_y)
             self.draw_explosion(bullet_x, bullet_y)
+
 
     def draw_explosion(self, x, y):
         rect = pygame.Rect(0, 0, x * TILE_SIZE, y * TILE_SIZE)
@@ -371,6 +387,9 @@ class Game:
             self.camera.apply(tank)
             self.map.camera = self.camera
             set_player_coords(tank.get_position())
+
+            if (next_x, next_y) == (cur_x, cur_y):
+                tank.play_brake()
 
     def update_uncontrolled_tanks(self):
         for tank in self.uncontrolled_tanks:
@@ -671,13 +690,15 @@ class LevelLoader:
 
         self.all_bots_are_dead = lambda: len(game.uncontrolled_tanks) == 0
         self.player_are_dead = lambda: game.controlled_tanks[0].is_crashed
-        self.all_convoy_is_dead = lambda: [i.__repr__() for i in game.uncontrolled_tanks].count('Convoy') < 2        
+        self.all_convoy_is_dead = lambda: [i.__repr__() for i in game.uncontrolled_tanks].count('Convoy') < 2
         game.events.append(debug_print_fps)
 
     def init_lvl1_scene(self, clock):
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("1_lvl.tmx")
-        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты        
+        play_background_music('1_lvl')
+
+        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         bullets = []
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
@@ -690,6 +711,8 @@ class LevelLoader:
     def init_lvl2_scene(self, clock):
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("2_lvl.tmx")
+        play_background_music('2_lvl')
+
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         bullets = []
@@ -708,6 +731,7 @@ class LevelLoader:
 
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("3_lvl.tmx")
+        play_background_music('3_lvl')
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         bullets = []
@@ -723,6 +747,7 @@ class LevelLoader:
     def init_lvl4_scene(self, clock):
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("4_lvl.tmx")
+        play_background_music('4_lvl')
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         bullets = []
@@ -740,6 +765,7 @@ class LevelLoader:
     def init_lvl5_scene(self, clock):
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("5_lvl.tmx")
+        play_background_music('5_lvl')
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         bullets = []
@@ -830,7 +856,7 @@ class LevelLoader:
         game.missions = [self.stand_on_control_point]
         game.defeat_reasons = [self.player_are_dead]
         return game
-    
+
     def init_lvl10_scene(self, clock):
         player_moves = [get_player_coords()]
         time_for_explode = 150
@@ -957,6 +983,7 @@ class LevelLoader:
 def main():
 
     pygame.display.set_caption("TANK BATTLES")
+    pygame.mixer.init()
 
     lvl_loader = LevelLoader()
     lvl_count = 1
