@@ -21,14 +21,14 @@
 </data>
  </layer>
  <objectgroup id="3" name="Слой объектов 1">
-  <object id="3" name="Tank 1" x="280" y="280" width="40" height="40">
+  <object id="3" name="Tank 1" x="40" y="520" width="40" height="40">
    <properties>
     <property name="destination" value="player"/>
     <property name="rotate_hull" type="int" value="0"/>
     <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>
-  <object id="4" name="Player" x="280" y="40" width="40" height="40">
+  <object id="4" name="Player" x="520" y="40" width="40" height="40">
    <properties>
     <property name="destination" value=""/>
     <property name="rotate_hull" type="int" value="180"/>

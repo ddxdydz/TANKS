@@ -96,13 +96,13 @@ class Map:
         self.unbreak_tiles = []
         for y in range(self.height):
             for x in range(self.width):
-                type_of_tile = check_prop(x, y, 0)['type']
+                type_of_tile = self.get_type_of_tile(x, y)
                 id_of_tyle = self.tiled_map.get_tile_id(x, y)
                 if 'free' in type_of_tile and id_of_tyle not in self.free_tiles:
                     self.free_tiles.append(id_of_tyle)
                 elif type_of_tile == 'break' and id_of_tyle not in self.break_tiles:
                     self.break_tiles.append(id_of_tyle)
-                elif type_of_tile == 'unbreak' and id_of_tyle not in self.unbreak_tiles:
+                elif 'unbreak' in type_of_tile and id_of_tyle not in self.unbreak_tiles:
                     self.unbreak_tiles.append(id_of_tyle)
         self.shadow = []
         self.lava = []
@@ -130,9 +130,6 @@ class Map:
                             screen.blit(tile, (tile_rect.width, tile_rect.height))
 
                             if (x, y) in self.lava:
-                                lava = pygame.Surface((self.tiled_map.tmx_data.tilewidth,
-                                                         self.tiled_map.tmx_data.tileheight))
-                                lava.fill(pygame.Color(255, 0, 0))
                                 screen.blit(lava, (tile_rect.width, tile_rect.height))
 
                             if tank_stand_on:
@@ -292,23 +289,39 @@ class Game:
                 del self.bullets[self.bullets.index(bullet)]
                 continue
             if not self.map.is_free((bullet_x, bullet_y)):
-                if self.map.get_type_of_tile(bullet_x, bullet_y) != 'water':
+                if 'water' not in self.map.get_type_of_tile(bullet_x, bullet_y):
                     del self.bullets[self.bullets.index(bullet)]
-                    if getattr(self.map.map[bullet_y][bullet_x], 'team', False):
-                        tank = self.map.map[bullet_y][bullet_x]
-                        tank.health -= 1
-                        if tank.health <= 0:
-                            if tank.is_crashed:
-                                self.map.map[bullet_y][bullet_x] = self.map.get_free_block(bullet_x, bullet_y)
-                                tank.clear_the_tank()
-                            else:
-                                tank.destroy_the_tank(self.uncontrolled_tanks)
-                    elif self.map.map[bullet_y][bullet_x] in self.map.break_tiles:
-                        self.map.map[bullet_y][bullet_x] = self.map.get_free_block(bullet_x, bullet_y)
-                    elif self.map.get_type_of_tile(bullet_x, bullet_y) == 'tnt':
-                        self.make_explode(bullet_x, bullet_y)
+                    self.destruct_cell(bullet_x, bullet_y)
+
+    def destruct_cell(self, bullet_x, bullet_y):
+        if getattr(self.map.map[bullet_y][bullet_x], 'team', False):
+            tank = self.map.map[bullet_y][bullet_x]
+            tank.health -= 1
+            if tank.health <= 0:
+                if tank.is_crashed:
+                    self.map.map[bullet_y][bullet_x] = self.map.get_free_block(bullet_x, bullet_y)
+                    tank.clear_the_tank()
+                else:
+                    tank.destroy_the_tank(self.uncontrolled_tanks)
+            self.draw_explosion(bullet_x, bullet_y)
+        elif self.map.map[bullet_y][bullet_x] in self.map.break_tiles:
+            self.map.map[bullet_y][bullet_x] = self.map.get_free_block(bullet_x, bullet_y)
+        elif self.map.get_type_of_tile(bullet_x, bullet_y) == 'tnt':
+            self.make_reflect_explode(bullet_x, bullet_y)
+            self.draw_explosion(bullet_x, bullet_y)
+
+    def draw_explosion(self, x, y):
+        rect = pygame.Rect(0, 0, x * TILE_SIZE, y * TILE_SIZE)
+        self.camera.apply(rect)
+        screen.blit(explosion, (rect.w, rect.h))
 
     def make_explode(self, x, y):
+        for y_step in (max((0, y - 1)), y, min(self.map.height, y + 1)):
+            for x_step in (max((0, x - 1)), x, min(self.map.height, x + 1)):
+                self.destruct_cell(x_step, y_step)
+                self.draw_explosion()
+
+    def make_reflect_explode(self, x, y):
         self.map.map[y][x] = self.map.get_free_block(x, y)
         for angle in range(0, 271, 90):
             self.bullets.append(Bullet(
@@ -593,10 +606,12 @@ class Game:
 
 class Camera:
     # зададим начальный сдвиг камеры
-    def __init__(self, width, height):
+    def __init__(self, width, height, shift_x=7, shift_y=7):
         self.width = width
         self.height = height
         self.rect = pygame.Rect(0, 0, self.width, self.height)
+        self.shift_x = shift_x
+        self.shift_y = shift_y
 
     # сдвинуть объект obj на смещение камеры
     def apply(self, obj):
@@ -608,12 +623,18 @@ class Camera:
         elif isinstance(obj, pygame.Rect):
             obj.width += self.rect.left
             obj.height += self.rect.top
+        elif isinstance(obj, pygame.Surface):
+            obj_rect = obj.get_rect()
+            obj_rect.x += self.rect.left * TILE_SIZE
+            obj_rect.y += self.rect.top * TILE_SIZE
+            obj.set_clip(obj_rect)
+            return obj
 
     # позиционировать камеру на объекте target
     def update(self, target):
         # dx = -(target.rect.x + target.rect.w // 2 - self.width // 2)
-        dx = -(target.x * TILE_SIZE - (3 * TILE_SIZE))
-        dy = -(target.y * TILE_SIZE - (3 * TILE_SIZE))
+        dx = -(target.x * TILE_SIZE - (self.shift_x * TILE_SIZE))
+        dy = -(target.y * TILE_SIZE - (self.shift_y * TILE_SIZE))
 
         # ограничения камеры, чтобы она не показала черных границы
         if abs(dx) >= (self.width - 14) * TILE_SIZE:
@@ -734,8 +755,6 @@ class LevelLoader:
         def open_door():
             if all(cell in game.map.free_tiles for cell in sum([game.map.map[9][19:21], game.map.map[10][19:21]], [])):
                 game.map.map[21][27] = game.map.free_tiles[0]
-            else:
-                print(sum([game.map.map[9][1:3], game.map.map[10][1:3]], []))
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("6_lvl.tmx")
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
@@ -788,7 +807,7 @@ class LevelLoader:
         return game
 
     def init_lvl9_scene(self, clock):
-        def shadow_kill_tanks():
+        def lava_kill_tanks():
             for group in [game.uncontrolled_tanks, game.controlled_tanks]:
                 for tank in group:
                     if tank.get_position() in game.map.lava:
@@ -801,13 +820,136 @@ class LevelLoader:
         bullets = []
 
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        game.camera.shift_y = 10
 
-        shadow_spread = lambda: game.map.lava.extend([(x, game.map.lava[-1][1] + 1) for x in range(1, 14)])\
+        lava_spread = lambda: game.map.lava.extend([(x, game.map.lava[-1][1] + 1) for x in range(1, 14)])\
             if int(str(pygame.time.get_ticks())[-3:]) < 100 else None
-        game.events.extend([shadow_spread, shadow_kill_tanks])
+        game.events.extend([lava_spread, lava_kill_tanks])
 
         self.init_reasons_and_missions(game)
         game.missions = [self.stand_on_control_point]
+        game.defeat_reasons = [self.player_are_dead]
+        return game
+    
+    def init_lvl10_scene(self, clock):
+        player_moves = [get_player_coords()]
+        time_for_explode = 150
+        time_for_shoot = 15
+        boss_sprite = pygame.sprite.Sprite()
+        boss_sprite.image = boss_hull
+        boss_sprite.rect = boss_sprite.image.get_rect()
+        boss_sprite.rect.width = 1720
+        boss_sprite.rect.height = 320
+
+        def lava_kill_tanks():
+            for group in [game.uncontrolled_tanks, game.controlled_tanks]:
+                for tank in group:
+                    if tank.get_position() in game.map.lava:
+                        tank.destroy_the_tank(group)
+
+        def explode_player_every_momenth():
+            nonlocal time_for_explode
+            nonlocal time_for_shoot
+            time_for_explode -= 1
+            # int(str(pygame.time.get_ticks())[-3:]) > 900
+            if time_for_explode < 0:
+                if len(player_moves) > 4 * 4:
+                    time_for_shoot -= 1
+                    rect = pygame.Rect(0, 0, player_moves[0][0] * TILE_SIZE, player_moves[0][1] * TILE_SIZE)
+                    game.camera.apply(rect)
+                    game.make_explode(*player_moves[0])
+                    screen.blit(target_confirmed, (rect.width, rect.height))
+                    if time_for_shoot == 0:
+                        time_for_explode = 150
+                        time_for_shoot = 15
+                        screen.blit(target_confirmed, (rect.width, rect.height))
+            else:
+                player_moves.append((min(42, get_player_coords()[0]), get_player_coords()[1]))
+                if len(player_moves) > 5 * 4:
+                    player_moves.pop(0)
+
+                rect = pygame.Rect(0, 0, player_moves[0][0] * TILE_SIZE, player_moves[0][1] * TILE_SIZE)
+                game.camera.apply(rect)
+                screen.blit(target_search, (rect.width, rect.height))
+
+        def open_doors():
+            lock_cell = game.map.unbreak_tiles[1]
+            if all([isinstance(game.map.map[1][7], Tank), isinstance(game.map.map[20][7], Tank)]):
+                game.map.map[10][15] = game.map.get_free_block(15, 10)
+                game.map.map[11][15] = game.map.get_free_block(15, 11)
+            else:
+                game.map.map[10][15] = lock_cell
+                game.map.map[11][15] = lock_cell
+
+            if all(cell in game.map.free_tiles for cell in sum([game.map.map[2][22:24], game.map.map[3][22:24],
+                                                                game.map.map[6][30:32], game.map.map[7][30:32],
+                                                                game.map.map[18][21:23], game.map.map[19][21:23],
+                                                                game.map.map[21][29:31]], [])):
+                game.map.map[10][36] = game.map.get_free_block(15, 10)
+                game.map.map[11][36] = game.map.get_free_block(15, 11)
+            if all(cell in game.map.free_tiles for cell in sum([game.map.map[0][51:55], game.map.map[1][51:55]], [])):
+                for x in range(51, 56):
+                    game.map.map[6][x] = game.map.get_free_block(51, 6)
+
+            if all(cell in game.map.free_tiles for cell in sum([game.map.map[20][51:55], game.map.map[21][51:55]], [])):
+                for x in range(51, 56):
+                    game.map.map[15][x] = game.map.get_free_block(51, 15)
+
+        def lock_control_points_first_chapter():
+            lock_cell = game.map.unbreak_tiles[1]
+            if all(cell in game.map.free_tiles for cell in sum([game.map.map[1][1:3], game.map.map[2][1:3],
+                                                             game.map.map[1][11:13], game.map.map[2][11:13]], [])):
+
+                game.map.map[1][6] = lock_cell
+                game.map.map[1][8] = lock_cell
+                game.map.map[2][7] = lock_cell
+
+            if all(cell in game.map.free_tiles for cell in sum([game.map.map[19][1:3], game.map.map[20][1:3],
+                                                             game.map.map[14][6:8], game.map.map[15][6:8]], [])):
+                game.map.map[20][6] = lock_cell
+                game.map.map[19][7] = lock_cell
+
+        def shadow_chapter():
+            if get_player_coords() in [(16, 10), (16, 11)]:
+                for y in range(0, 22):
+                    for x in range(0, 16):
+                        if (x, y) not in game.map.shadow:
+                            game.map.shadow.append((x, y))
+
+            if get_player_coords() in [(37, 10), (37, 11)]:
+                for y in range(0, 22):
+                    for x in range(16, 34):
+                        if (x, y) not in game.map.shadow:
+                            game.map.shadow.append((x, y))
+
+        def render_boss():
+            rect = pygame.Rect(0, 0, 1720, 320)
+            game.camera.apply(rect)
+            screen.blit(boss_hull, (rect.w, rect.h))
+
+        # Формирование кадра(команды рисования на холсте):
+        main_map = Map("10_lvl.tmx")
+        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+
+        bullets = []
+
+        game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        self.init_reasons_and_missions(game)
+
+        # Замещение воды на лаву, чтобы придать уровню зловещий вид
+        for y in range(game.map.height):
+            for x in range(game.map.width):
+                type_of_tile = game.map.get_type_of_tile(x, y)
+                if type_of_tile == 'free_lava':
+                    game.map.lava.append((x, y))
+
+        game.events.extend([lava_kill_tanks, explode_player_every_momenth, lock_control_points_first_chapter,
+                            shadow_chapter, open_doors, render_boss])
+
+        boss_lifes_over = lambda: all(cell in game.map.free_tiles
+                                      for cell in sum([game.map.map[7][51:56], game.map.map[14][51:56]], []))
+
+        game.missions = [boss_lifes_over]
         game.defeat_reasons = [self.player_are_dead]
         return game
 
@@ -831,8 +973,10 @@ def main():
                 running = False
             if event.type == pygame.KEYDOWN:
                 if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5,
-                                 pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9]:
+                                 pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_0]:
                     lvl_count = int(event.unicode)
+                    if lvl_count == 0:
+                        lvl_count = 10
                     game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')(clock)
                 elif event.key == pygame.K_h:
                     game.controlled_tanks[0].health = 999
@@ -850,7 +994,7 @@ def main():
         game.make_events(clock)
         game.end_game_and_return_status(screen)
 
-        pygame.display.flip()
+        pygame.display.update()
         clock.tick(FPS)
     pygame.quit()
 

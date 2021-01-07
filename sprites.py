@@ -31,6 +31,18 @@ convoy_crash = pygame.transform.scale(load_image(
             "convoy_crash.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 bullet_0 = pygame.transform.scale(load_image(
             "bullet_0.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+boss_hull = pygame.transform.scale(load_image(
+            "boss.png", colorkey=-1), (640, 240))
+
+lava = pygame.transform.scale(load_image(
+            "lava.jpg", colorkey=0), (TILE_SIZE, TILE_SIZE))
+explosion = pygame.transform.scale(load_image(
+            "explosion.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+
+target_search = pygame.transform.scale(load_image(
+            "target_search.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+target_confirmed = pygame.transform.scale(load_image(
+            "target_confirmed.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 
 sprites_dict = {'Tank': (red_tank_hull, red_tank_turret),
                 'Beast': (beast_tank_hull, beast_tank_turret),

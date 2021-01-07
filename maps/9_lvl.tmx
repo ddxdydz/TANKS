@@ -77,14 +77,14 @@
     <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>
-  <object id="22" name="Tank" x="240" y="600" width="40" height="40">
+  <object id="22" name="Tank" x="240" y="680" width="40" height="40">
    <properties>
     <property name="destination" value="self"/>
     <property name="rotate_hull" type="int" value="0"/>
     <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>
-  <object id="23" name="Tank" x="240" y="680" width="40" height="40">
+  <object id="23" name="Tank" x="240" y="600" width="40" height="40">
    <properties>
     <property name="destination" value="self"/>
     <property name="rotate_hull" type="int" value="180"/>
