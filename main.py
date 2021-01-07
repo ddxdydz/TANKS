@@ -325,7 +325,6 @@ class Game:
             self.make_reflect_explode(bullet_x, bullet_y)
             self.draw_explosion(bullet_x, bullet_y)
 
-
     def draw_explosion(self, x, y):
         rect = pygame.Rect(0, 0, x * TILE_SIZE, y * TILE_SIZE)
         self.camera.apply(rect)
@@ -335,7 +334,7 @@ class Game:
         for y_step in (max((0, y - 1)), y, min(self.map.height, y + 1)):
             for x_step in (max((0, x - 1)), x, min(self.map.height, x + 1)):
                 self.destruct_cell(x_step, y_step)
-                self.draw_explosion()
+                self.draw_explosion(x_step, y_step)
 
     def make_reflect_explode(self, x, y):
         self.map.map[y][x] = self.map.get_free_block(x, y)
@@ -783,6 +782,7 @@ class LevelLoader:
                 game.map.map[21][27] = game.map.free_tiles[0]
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("6_lvl.tmx")
+        play_background_music('6_lvl')
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         bullets = []
@@ -798,6 +798,7 @@ class LevelLoader:
     def init_lvl7_scene(self, clock):
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("7_lvl.tmx")
+        play_background_music('7_lvl')
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         bullets = []
@@ -819,6 +820,7 @@ class LevelLoader:
 
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("8_lvl.tmx")
+        play_background_music('8_lvl')
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         bullets = []
@@ -841,6 +843,7 @@ class LevelLoader:
 
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("9_lvl.tmx")
+        play_background_music('9_lvl')
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         bullets = []
@@ -858,9 +861,10 @@ class LevelLoader:
         return game
 
     def init_lvl10_scene(self, clock):
+        play_background_music('10_lvl')
         player_moves = [get_player_coords()]
         time_for_explode = 150
-        time_for_shoot = 15
+        time_for_shoot = 30
         boss_sprite = pygame.sprite.Sprite()
         boss_sprite.image = boss_hull
         boss_sprite.rect = boss_sprite.image.get_rect()
@@ -879,17 +883,24 @@ class LevelLoader:
             time_for_explode -= 1
             # int(str(pygame.time.get_ticks())[-3:]) > 900
             if time_for_explode < 0:
+                if time_for_explode == -1:
+                    pygame.mixer.Sound(os.path.join(SOUND_DIR, 'other', 'marker.mp3')).play()
                 if len(player_moves) > 4 * 4:
                     time_for_shoot -= 1
                     rect = pygame.Rect(0, 0, player_moves[0][0] * TILE_SIZE, player_moves[0][1] * TILE_SIZE)
                     game.camera.apply(rect)
-                    game.make_explode(*player_moves[0])
                     screen.blit(target_confirmed, (rect.width, rect.height))
                     if time_for_shoot == 0:
+                        pygame.mixer.Sound(os.path.join(SOUND_DIR, 'other', 'boss_shot.mp3')).play()
+                        game.make_explode(*player_moves[0])
                         time_for_explode = 150
-                        time_for_shoot = 15
+                        time_for_shoot = 30
                         screen.blit(target_confirmed, (rect.width, rect.height))
             else:
+                if time_for_explode == 141:
+                    pygame.mixer.Sound(os.path.join(SOUND_DIR, 'other', 'boss_load.mp3')).play()
+                if time_for_explode == 45:
+                    pygame.mixer.Sound(os.path.join(SOUND_DIR, 'other', 'boss_gun_raise.mp3')).play()
                 player_moves.append((min(42, get_player_coords()[0]), get_player_coords()[1]))
                 if len(player_moves) > 5 * 4:
                     player_moves.pop(0)
@@ -1016,9 +1027,9 @@ def main():
             game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')(clock)
 
         game.render(screen)
+        game.make_events(clock)
         game.update_controlled_tanks()
         game.update_uncontrolled_tanks()
-        game.make_events(clock)
         game.end_game_and_return_status(screen)
 
         pygame.display.update()

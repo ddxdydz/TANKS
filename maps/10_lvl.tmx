@@ -183,7 +183,7 @@
     <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>
-  <object id="26" name="Beast" x="1400" y="800" width="40" height="40">
+  <object id="26" name="Beast" x="1480" y="760" width="40" height="40">
    <properties>
     <property name="destination" value="detect range(40, 43), range(0, 21)"/>
     <property name="respawn" type="bool" value="true"/>
@@ -191,7 +191,7 @@
     <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>
-  <object id="27" name="Beast" x="1400" y="40" width="40" height="40">
+  <object id="27" name="Beast" x="1480" y="80" width="40" height="40">
    <properties>
     <property name="destination" value="detect range(40, 43), range(0, 21)"/>
     <property name="respawn" type="bool" value="true"/>

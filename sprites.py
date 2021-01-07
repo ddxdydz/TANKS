@@ -113,6 +113,12 @@ class Convoy(pygame.sprite.Sprite):
         if self.group is not None:
             self.group.add(self)
 
+        self.sound_dict = dict()
+        self.sound_dict['move'] = pygame.mixer.Sound(
+            os.path.join(SOUND_DIR, 'tanks', self.__repr__(), 'move.mp3'))
+        self.sound_dict['death'] = pygame.mixer.Sound(
+            os.path.join(SOUND_DIR, 'tanks', self.__repr__(), 'death.mp3'))
+
     def update_timers(self, clock):
         self.current_move_forward_cooldown -= clock.get_time()
         self.current_turn_cooldown -= clock.get_time()
@@ -150,12 +156,14 @@ class Convoy(pygame.sprite.Sprite):
         self.image = pygame.transform.rotate(self.image, rotate)
 
     def set_position(self, position):
+        play_sound(self, 'move')
         self.rect.x, self.rect.y = \
             position[0] * TILE_SIZE, position[1] * TILE_SIZE
         self.x, self.y = position
 
     def destroy_the_tank(self, another_group):
         self.is_crashed = True
+        play_sound(self, 'death')
         self.image = pygame.transform.rotate(convoy_crash, self.get_rotate()[1])
         another_group.remove(self)
 
@@ -359,7 +367,7 @@ class Tank(pygame.sprite.Sprite):
 
 class Player(Tank):
     def __init__(self, position, rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1,
-                 group=None):
+                 group=None, respawn=False):
         self.sound_dict = dict()
         super().__init__(position, rotate_turret, rotate_hull, control_keys, group)
 
@@ -494,3 +502,13 @@ class Bullet(pygame.sprite.Sprite):
     def render(self, screen):
         self.group.draw(screen)
 
+    def sounds_break(self):
+        play_sound(self, 'collision_break')
+
+    def sounds_unbreak(self):
+        play_sound(self, 'collision_unbreak')
+
+    def sound_near_with_player(self):
+        distance = calculate_distance_for_player(self)
+        if distance < 1.5:
+            play_sound(self, 'near_fly')
