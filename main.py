@@ -1,7 +1,7 @@
 import os
 import sys
 import datetime as dt
-from random import random
+from random import random, choice
 from queue import Queue
 import pygame
 import pygame_gui
@@ -13,7 +13,7 @@ import pickle
 WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 600, 600
 TITLE = 'TANK BATTLES'
 TILE_SIZE = 40
-FPS = 40
+FPS = 15
 MAPS_DIR = 'data/maps'
 FONTS_DIR = 'data/fonts'
 GUI_THEMES_DIR = 'data/gui themes'
@@ -32,6 +32,7 @@ SHOOT = 97
 
 # Sound volume
 PLAYER_MOVEMENTS = 0.5
+MUSIC = 1.0
 EXPLOSIONS = 0.3
 
 # Control keys dicts
@@ -63,10 +64,11 @@ screen = pygame.display.set_mode(WINDOW_SIZE)
 clock = pygame.time.Clock()
 
 player_coords = (0, 0)
-user_info = {'sound_value': 100,
+'''user_info = {'sound_value': 100,
              'music_value': 100,
              'name': 'user_name',
-             'high_scores': [('-', 0) for _ in range(10)]}
+             'high_scores': [('-', 0) for _ in range(10)],
+             'player_coords': (0, 0)}'''
 
 main_menu_manager = pygame_gui.UIManager(
     WINDOW_SIZE, f'{GUI_THEMES_DIR}/start_manu_theme.json')
@@ -145,26 +147,26 @@ music_value_slider = pygame_gui.elements.ui_horizontal_slider.UIHorizontalSlider
     manager=main_menu_manager)
 
 
-def play_background_music(name):
+def play_background_music(name, loops=-1):
+    load_user_info()
     pygame.mixer.music.stop()
     pygame.mixer.music.load(os.path.join(SOUND_DIR, 'music', f'{name}.mp3'))
-    pygame.mixer.music.set_volume(0.7)
-    pygame.mixer.music.play(loops=-1)
+    pygame.mixer.music.play(loops=loops)
+
+
+def change_volume_background_music(volume):
+    if volume > 1:
+        volume = volume / 100
+    pygame.mixer.music.set_volume(volume)
 
 
 #TODO переписать
 def get_player_coords():
-    with open('player_coords.txt') as file:
-        coords = eval(file.readline())
-        file.close()
-        return coords
+    return load_user_info()['player_coords']
 
 
 def set_player_coords(coords):
-    with open('player_coords.txt', 'w+') as file:
-        file.seek(0)
-        file.write(str(coords))
-        file.close()
+    save_user_info(coords)
 
 
 def load_image(name, colorkey=None):
@@ -186,31 +188,10 @@ def load_image(name, colorkey=None):
 
 
 # Loading game graphics
-green_tank_turret = pygame.transform.scale(load_image("green_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-green_tank_hull = pygame.transform.scale(load_image("green_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-red_tank_turret = pygame.transform.scale(load_image("red_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-red_tank_hull = pygame.transform.scale(load_image("red_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-beast_tank_hull = pygame.transform.scale(load_image("beast_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-beast_tank_turret = pygame.transform.scale(load_image("beast_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-heavy_tank_hull = pygame.transform.scale(load_image("heavy_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-heavy_tank_turret = pygame.transform.scale(load_image("heavy_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-crash_tank = pygame.transform.scale(load_image("crached_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-bullet_0 = pygame.transform.scale(load_image("bullet_0.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
-
 music_on_img = pygame.transform.scale(load_image("music_on.png"), sound_btn_size)
 sound_on_img = pygame.transform.scale(load_image("sound_on.png"), sound_btn_size)
 music_off_img = pygame.transform.scale(load_image("music_off.png"), sound_btn_size)
 sound_off_img = pygame.transform.scale(load_image("sound_off.png"), sound_btn_size)
-
-sprites_dict = {'Tank': (red_tank_hull, red_tank_turret),
-                'Beast': (beast_tank_hull, beast_tank_turret),
-                'Player': (green_tank_hull, green_tank_turret),
-                'Heavy': (heavy_tank_hull, heavy_tank_turret)}
-normal_bullet_dict = {0: bullet_0}
-
-
-def get_player_coords():
-    return player_coords
 
 
 def terminate():
@@ -218,26 +199,28 @@ def terminate():
     sys.exit()
 
 
-def save_user_info():
+def save_user_info(coords=(0, 0)):
     with open(f'{SAVED_USER_INFO_DIR}/save.dat', 'wb') as file:
         pickle.dump({'name': name_entry_line.text,
                      'sound_value': sound_value_slider.current_value,
                      'music_value': music_value_slider.current_value,
-                     'high_scores': user_info['high_scores']}, file)
+                     'high_scores': [('-', 0) for _ in range(10)],
+                     'player_coords': coords}, file)
 
 
 def load_user_info():
-    global user_info
     with open(f'{SAVED_USER_INFO_DIR}/save.dat', 'rb') as file:
         user_info = pickle.load(file)
     name_entry_line.set_text(user_info['name'])
     sound_value_slider.set_current_value(user_info['sound_value'])
     music_value_slider.set_current_value(user_info['music_value'])
+    change_volume_background_music(user_info['music_value'])
+    return user_info
 
 
-def save_game(game):
+def save_game(lvl):
     with open(f'{SAVED_SESSION_DIR}/save.dat', 'wb') as file:
-        pickle.dump(game, file)
+        pickle.dump(lvl, file)
 
 
 def load_saved_game():
@@ -269,7 +252,7 @@ class Map:
         for y in range(self.height):
             for x in range(self.width):
                 type_of_tile = self.get_type_of_tile(x, y)
-                id_of_tyle = self.tiled_map.get_tile_id(x, y)
+                id_of_tyle = self.tiled_map.get_tile_gid(x, y, 0)
                 if 'free' in type_of_tile and id_of_tyle not in self.free_tiles:
                     self.free_tiles.append(id_of_tyle)
                 elif type_of_tile == 'break' and id_of_tyle not in self.break_tiles:
@@ -281,7 +264,7 @@ class Map:
 
     def render(self, screen):
         screen.fill('#000000')
-        for layer in self.tiled_map.tmx_data.visible_layers:
+        for layer in self.tiled_map.visible_layers:
             if isinstance(layer, pytmx.TiledTileLayer):
                 for x, y, gid in layer:
                     # Оптимизация рендера, чтобы тот не отрисовывал не входящие в камеру объекты
@@ -295,8 +278,8 @@ class Map:
 
                         tile = self.tiled_map.get_tile_image_by_gid(gid)
                         if tile:
-                            tile_rect = pygame.Rect(0, 0, x * self.tiled_map.tmx_data.tilewidth,
-                                                    y * self.tiled_map.tmx_data.tileheight)
+                            tile_rect = pygame.Rect(0, 0, x * self.tiled_map.tilewidth,
+                                                    y * self.tiled_map.tileheight)
                             self.camera.apply(tile_rect)
                             screen.blit(tile, (tile_rect.width, tile_rect.height))
 
@@ -312,8 +295,8 @@ class Map:
                                         self.map[y][x] = self.get_free_block(x, y)
 
                             if (x, y) in self.shadow:
-                                shadow = pygame.Surface((self.tiled_map.tmx_data.tilewidth,
-                                                         self.tiled_map.tmx_data.tileheight))
+                                shadow = pygame.Surface((self.tiled_map.tilewidth,
+                                                         self.tiled_map.tileheight))
                                 shadow.fill(pygame.Color(0, 0, 0))
                                 shadow.set_alpha(99)
                                 screen.blit(shadow, (tile_rect.width, tile_rect.height))
@@ -322,6 +305,8 @@ class Map:
         return self.map[position[1]][position[0]]
 
     def get_type_of_tile(self, x, y):
+        if x not in range(self.width) or y not in range(self.height):
+            return None
         check_prop = self.tiled_map.get_tile_properties
         return check_prop(x, y, 0)['type']
 
@@ -344,7 +329,7 @@ class Map:
         destinations = dict()
         player_list = []
         tank_list = []
-        for tile_object in self.tiled_map.tmx_data.objects:
+        for tile_object in self.tiled_map.objects:
             if tile_object.name in ['Shadow', 'Lava']:
                 if tile_object.name == 'Shadow':
                     special_group = self.shadow
@@ -397,19 +382,19 @@ class Map:
 
 
 class Game:
-    def __init__(self, map, controlled_tanks, bullets, clock, sprites_group=list()):
+    def __init__(self, map, bullets, clock, sprites_group=list()):
         self.map = map
         self.clock = clock
         self.camera = self.map.camera
 
-        # Инициализация миссий и "причин для поражения"
+        # Инициализация миссий, "причин для поражения", событий
         self.defeat_reasons = []
         self.missions = []
+        self.events = []
 
         # Группы танков
         self.sprites_group = sprites_group
-        self.controlled_tanks = controlled_tanks
-        self.uncontrolled_tanks, self.destinations = (self.map.give_tanks_list_and_destinations(sprites_group[0]))
+        self.controlled_tanks, self.uncontrolled_tanks, self.destinations = (self.map.give_player_list_and_tanks_list_and_destinations(sprites_group[0]))
 
         self.bullets = bullets
 
@@ -475,7 +460,7 @@ class Game:
 
     def update_controlled_tanks(self):
         for tank in self.controlled_tanks:
-            tank.update_timers()
+            tank.update_timers(clock)
             if tank.is_crashed:
                 continue
             unpack_player_coords = self.map.find_player()
@@ -495,7 +480,7 @@ class Game:
                         self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
                         self.map.map[next_y][next_x] = tank
             elif pygame.key.get_pressed()[tank.control_keys[BACK]]:
-                next_x, next_y = cur_x + dx, cur_y + dy
+                next_x, next_y = cur_x - dx, cur_y - dy
                 if self.map.is_free((next_x, next_y)):
                     if tank.move_back():
                         self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
@@ -521,7 +506,7 @@ class Game:
 
     def update_uncontrolled_tanks(self):
         for tank in self.uncontrolled_tanks:
-            tank.update_timers()
+            tank.update_timers(clock)
             if tank.is_crashed:
                 continue
 
@@ -735,16 +720,22 @@ class Game:
         path.reverse()
         return path
 
-    def end_game_and_return_status(self, screen):
-        results = [reason() for reason in self.defeat_reasons]
-        if any(results):
-            show_game_message(screen, 'YOU LOST!', 'press button to continue')
-            self.end_count += 1
+    def end_game_and_return_status(self, screen, return_status=False):
+        reasons = [reason() for reason in self.defeat_reasons]
+        if any(reasons):
+            if not return_status:
+                if self.end_count == 0:
+                    play_background_music('lose', 0)
+                show_game_message(screen, 'YOU LOSE!', 'press any button to continue')
+                self.end_count += 1
             return 'lose'
         results = [mission() for mission in self.missions]
         if any(results):
-            show_game_message(screen, 'YOU WON!', 'press button to continue')
-            self.end_count += 1
+            if not return_status:
+                if self.end_count == 0:
+                    play_background_music('win')
+                show_game_message(screen, 'YOU WON!', 'press any button to continue')
+                self.end_count += 1
             return 'win'
 
     def make_events(self):
@@ -792,8 +783,17 @@ class Camera:
 
 class LevelLoader:
     def init_reasons_and_missions(self, game):
-        def debug_print_fps():
-            print('clock.fps =', game.clock.get_fps())
+        def debug_show_fps():
+            fps = round(clock.get_fps())
+            if fps > 13:
+                color = (0, 255, 0)
+            elif fps > 9:
+                color = (255, 255, 0)
+            else:
+                color = (255, 0, 0)
+            font = pygame.font.Font(f'{FONTS_DIR}/Thintel.ttf', 40)
+            text = font.render(f'FPS: {fps}', True, pygame.Color(color))
+            screen.blit(text, (WINDOW_WIDTH - text.get_width(), 0))
 
         self.stand_on_control_point = lambda: game.map.get_type_of_tile(get_player_coords()[0],
                                                            get_player_coords()[1]) == 'free_control_point'
@@ -801,7 +801,7 @@ class LevelLoader:
         self.all_bots_are_dead = lambda: len(game.uncontrolled_tanks) == 0
         self.player_are_dead = lambda: game.controlled_tanks[0].is_crashed
         self.all_convoy_is_dead = lambda: [i.__repr__() for i in game.uncontrolled_tanks].count('Convoy') < 2
-        game.events.append(debug_print_fps)
+        game.events.append(debug_show_fps)
 
     def init_lvl1_scene(self):
         # Формирование кадра(команды рисования на холсте):
@@ -811,7 +811,9 @@ class LevelLoader:
         all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
 
         bullets = []
-        game = Game(main_map, controlled_tanks, bullets, clock, sprites_group=[all_sprites])
+        game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        self.init_reasons_and_missions(game)
+
         game.missions = [lambda: len(game.uncontrolled_tanks) == 0]
         game.defeat_reasons = [lambda: game.controlled_tanks[0].is_crashed]
         return game
@@ -833,6 +835,10 @@ class LevelLoader:
         return game
 
     def init_lvl3_scene(self):
+        def open_door():
+            if all(cell in game.map.free_tiles for cell in sum([game.map.map[23][1:3], game.map.map[24][1:3]], [])):
+                game.map.map[6][19] = game.map.free_tiles[0]
+
         # Формирование кадра(команды рисования на холсте):
         main_map = Map("3_lvl.tmx")
         play_background_music('3_lvl')
@@ -986,9 +992,8 @@ class LevelLoader:
             nonlocal time_for_explode
             nonlocal time_for_shoot
             time_for_explode -= 1
-            # int(str(pygame.time.get_ticks())[-3:]) > 900
-            if time_for_explode < 0:
-                if time_for_explode == -1:
+            if time_for_explode <= 0:
+                if time_for_explode == 0:
                     pygame.mixer.Sound(os.path.join(SOUND_DIR, 'other', 'marker.mp3')).play()
                 if len(player_moves) > 4 * 4:
                     time_for_shoot -= 1
@@ -1177,6 +1182,8 @@ def show_game_message(surface, main_message, *secondary_messages):
 
 
 def start_screen():
+    play_background_music('menu')
+
     def draw_the_main_background():
         # init fon
         fon = pygame.Surface(WINDOW_SIZE)
@@ -1207,8 +1214,9 @@ def start_screen():
                     pass
                 if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
                     if event.ui_element == start_menu_btn_dict['CONTINUE']:
-                        return load_saved_game()
+                        return getattr(LevelLoader(), f'init_lvl{load_saved_game()}_scene')()
                     elif event.ui_element == start_menu_btn_dict['NEW GAME']:
+                        save_game(1)
                         return getattr(LevelLoader(), f'init_lvl{1}_scene')()
                     elif event.ui_element == start_menu_btn_dict['HIGH SCORES']:
                         do_show_scores = True
@@ -1234,6 +1242,9 @@ def start_screen():
                 music_on_img if music_value_slider.current_value else music_off_img)
 
             main_menu_manager.process_events(event)
+        # Применение всех настроек в реальном времени
+        save_user_info()
+        load_user_info()
         main_menu_manager.update(time_delta)
 
         draw_the_main_background()
@@ -1254,11 +1265,7 @@ def main():
     lvl_count = 1
     lvl_loader = LevelLoader()
 
-
     # Главный игровой цикл:
-    clock = pygame.time.Clock()
-    game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')()
-
     running = True
     load_user_info()
     game = start_screen()
@@ -1275,16 +1282,22 @@ def main():
                         if event.key == pygame.K_ESCAPE:
                             continue
                         elif event.key == pygame.K_RETURN:
-                            # save_game(game)
                             game = start_screen()
                             break
             if event.type == pygame.KEYDOWN:
+                if event.key and game.end_game_and_return_status(screen, return_status=True) and game.end_count > 15:
+                    status = game.end_game_and_return_status(screen, return_status=True)
+                    if status == 'win':
+                        lvl_count += 1
+                        save_game(lvl_count)
+                    game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')()
+
                 if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5,
                                  pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_0]:
                     lvl_count = int(event.unicode)
                     if lvl_count == 0:
                         lvl_count = 10
-                    game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')(clock)
+                    game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')()
                 elif event.key == pygame.K_h:
                     game.controlled_tanks[0].health = 999
 
@@ -1296,10 +1309,10 @@ def main():
                     is_paused = True
         if not is_paused:
             game.render(screen)
-            game.make_evemts()
-            game.update_controlled_tanks()
-            game.update_uncontrolled_tanks()
-            game.end_game_and_return_status(screen)
+            if game.end_game_and_return_status(screen) is None:
+                game.make_events()
+                game.update_controlled_tanks()
+                game.update_uncontrolled_tanks()
 
         pygame.display.flip()
         clock.tick(FPS)

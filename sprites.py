@@ -60,15 +60,15 @@ def calculate_distance_for_player(object):
     a, b = abs(obj_coords[0] - pl_coords[0]) + 1, abs(obj_coords[1] - pl_coords[1])
     c = pow((a**2 + b**2), 0.5)
     if object.__repr__() == 'Player':
-        return PLAYER_MOVEMENTS
-    percent = round(1 / c, 3)
+        return load_user_info()['sound_value'] / 100
+    percent = round(1 / c, 3) * (load_user_info()['sound_value'] / 100)
     return percent if percent >= 0.08 else 0
 
 
 def play_sound(object, name_of_sound):
     sound = object.sound_dict[name_of_sound]
     if object.__repr__() == 'Player':
-        volume = PLAYER_MOVEMENTS
+        volume = load_user_info()['sound_value'] / 100
 
     else:
         volume = calculate_distance_for_player(object)
@@ -256,11 +256,13 @@ class Tank(pygame.sprite.Sprite):
         self.x, self.y = position
 
     def update_timers(self, clock):
-        self.current_shooting_cooldown -= clock.get_time()
-        self.current_move_forward_cooldown -= clock.get_time()
-        self.current_move_back_cooldown -= clock.get_time()
-        self.current_turn_cooldown -= clock.get_time()
-        self.current_turn_turret_cooldown -= clock.get_time()
+        speed_of_update = 40
+        self.current_shooting_cooldown -= speed_of_update
+        self.current_move_forward_cooldown -= speed_of_update
+        self.current_move_back_cooldown -= speed_of_update
+        self.current_turn_cooldown -= speed_of_update
+        self.current_turn_turret_cooldown -= speed_of_update
+        # print(self.current_move_forward_cooldown)
         if self.respawn and self.is_crashed:
             self.respawn_time -= 1
             self.clear_the_tank()
