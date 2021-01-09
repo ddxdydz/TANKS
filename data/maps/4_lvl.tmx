@@ -143,10 +143,10 @@
     <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>
-  <object id="18" name="Tank" x="400" y="2400" width="40" height="40">
+  <object id="18" name="Tank" x="400" y="2280" width="40" height="40">
    <properties>
     <property name="destination" value="detect range(6, 17), range(48, 56)"/>
-    <property name="rotate_hull" type="int" value="0"/>
+    <property name="rotate_hull" type="int" value="270"/>
     <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>

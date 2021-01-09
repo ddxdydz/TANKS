@@ -51,6 +51,24 @@ sprites_dict = {'Tank': (red_tank_hull, red_tank_turret),
                 'Allied': (salad_tank_hull, salad_tank_turret),
                 'Convoy': (convoy_hull, None)}
 
+# init character for cutscenes
+unknown = pygame.transform.scale(load_image(
+            os.path.join('sprites', "unknown.png"), colorkey=0), (100, 100))
+comander = pygame.transform.scale(load_image(
+            os.path.join('sprites', "comander.png"), colorkey=0), (100, 100))
+soldier = pygame.transform.scale(load_image(
+            os.path.join('sprites', "allied.png"), colorkey=0), (100, 100))
+radar = pygame.transform.scale(load_image(
+            os.path.join('sprites', "convoy.png"), colorkey=0), (100, 100))
+serzant = pygame.transform.scale(load_image(
+            os.path.join('sprites', "serzant.png"), colorkey=0), (100, 100))
+CHARACTERS_DICT = {None: unknown,
+                   'Командир Брэдли': comander,
+                   'Солдат': soldier,
+                   'Связист Игорь': radar,
+                   'Сержант': serzant}
+
+
 normal_bullet_dict = {0: bullet_0}
 
 
@@ -66,18 +84,19 @@ def calculate_distance_for_player(object):
 
 
 def play_sound(object, name_of_sound):
-    sound = object.sound_dict[name_of_sound]
-    if object.__repr__() == 'Player':
-        volume = load_user_info()['sound_value'] / 100
-
-    else:
+    if object is not None:
+        sound = object.sound_dict[name_of_sound]
         volume = calculate_distance_for_player(object)
-    if name_of_sound == 'death':
-        volume += 0.2
-    sound.set_volume(volume)
-    sound.play(maxtime=1000, fade_ms=200)
-    # sound.fadeout(100) С этой строкой звуки становятся мультяшными
-    sound.fadeout(500)
+        if name_of_sound == 'death':
+            volume += 0.2
+        sound.set_volume(volume)
+        sound.play(maxtime=1000, fade_ms=200)
+        sound.fadeout(500)
+    else:
+        volume = load_user_info()['sound_value'] / 100
+        sound = pygame.mixer.Sound(name_of_sound)
+        sound.set_volume(volume)
+        sound.play()
 
 
 class Convoy(pygame.sprite.Sprite):
@@ -391,11 +410,11 @@ class Player(Tank):
 
     def turn_turret_left(self):
         if super().turn_turret_left():
-            self.sound_dict['turn_turret'].play()
+            play_sound(self, 'turn_turret')
 
     def turn_turret_right(self):
         if super(Player, self).turn_turret_right():
-            self.sound_dict['turn_turret'].play()
+            play_sound(self, 'turn_turret')
 
     def set_position(self, position):
         super(Player, self).set_position(position)
