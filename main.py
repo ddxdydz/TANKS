@@ -761,17 +761,19 @@ class Game:
     def make_events(self):
         [event() for event in self.events]
 
-    def parse_cutscenes_from_csv(self, name_file):
-        with open(f'{CUTSCENES_DIR}/{name_file}.csv', 'r', encoding='utf-8') as cv:
+    def parse_cutscenes_from_file(self, name_file):
+        with open(f'{CUTSCENES_DIR}/{name_file}', 'r', encoding='utf-8') as file:
             if '10' in name_file:
                 self.final_lvl = True
-            reader = csv.DictReader(cv, delimiter=';', quotechar='"')
-            for scene in reader:
-                detect = scene['detect']
-                ranges = get_ranges_from_detect(f'detect {detect}')
-                trigger_on_detect = lambda coords, ranges: True if coords[0] in ranges[0]\
+
+            for line in file:
+                if 'detect' in line:
+                    ranges = get_ranges_from_detect(line)
+                    trigger_on_detect = lambda coords, ranges: True if coords[0] in ranges[0]\
                                                                    and coords[1] in ranges[1] else False
-                self.cutscenes.append({'trigger': trigger_on_detect, 'args': ranges, 'content': eval(scene['content'])})
+                    self.cutscenes.append({'trigger': trigger_on_detect, 'args': ranges, 'content': []})
+                elif line != '\n':
+                    self.cutscenes[-1]['content'].append(tuple(eval(line)))
 
     def show_cutscenes_and_return_status(self, return_status=False):
         if return_status:
@@ -797,12 +799,16 @@ class Game:
                         self.move_camera(replica)
                         replica = None
                     elif len(replica[1]) > 45:
-                        old_string = replica[1]
-                        string_with_newlines = [old_string[i:i + 44 if i + 44 < len(old_string) else len(old_string)]
-                                                for i in range(0, len(old_string), 44)]
-                        string_with_newlines = [i + '-' if i[-1].isalpha() and i[-1] != string_with_newlines[-1]
-                                                else i for i in string_with_newlines]
-                        replica = (replica[0], string_with_newlines)
+                        stroke = []
+                        line = replica[1].split()
+                        begin_index = 0
+                        for i in range(1, len(line) + 1):
+                            if sum(len(j) for j in line[begin_index:i]) + i - 1 > 45:
+                                stroke.append(' '.join(line[begin_index:i]))
+                                begin_index = i
+                            if i == len(line):
+                                stroke.append(' '.join(line[begin_index:i]))
+                        replica = (replica[0], stroke)
 
                     show_cutscene(screen, replica)
                     self.timer -= 1
@@ -916,7 +922,7 @@ class LevelLoader:
         bullets = []
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
         self.init_reasons_and_missions(game)
-        game.parse_cutscenes_from_csv('1_lvl')
+        game.parse_cutscenes_from_file('1_lvl')
 
         game.missions = [lambda: len(game.uncontrolled_tanks) == 0]
         game.defeat_reasons = [lambda: game.controlled_tanks[0].is_crashed]
@@ -932,7 +938,7 @@ class LevelLoader:
         bullets = []
 
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
-        game.parse_cutscenes_from_csv('2_lvl')
+        game.parse_cutscenes_from_file('2_lvl')
 
         self.init_reasons_and_missions(game)
         game.missions = [lambda: game.map.is_free((38, 9))]
@@ -954,7 +960,7 @@ class LevelLoader:
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
         self.init_reasons_and_missions(game)
         game.events.extend([open_door, self.convoy_turn_around])
-        game.parse_cutscenes_from_csv('3_lvl')
+        game.parse_cutscenes_from_file('3_lvl')
 
         game.missions = [self.stand_on_control_point]
         game.defeat_reasons = [self.player_are_dead]
@@ -969,11 +975,10 @@ class LevelLoader:
         bullets = []
 
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        game.parse_cutscenes_from_file('4_lvl')
         self.init_reasons_and_missions(game)
-        game.parse_cutscenes_from_csv('4_lvl')
         game.events.append(self.convoy_turn_around)
 
-        self.init_reasons_and_missions(game)
         convoy_here = lambda: [i.__repr__() for i in sum([game.map.map[60][22:26], game.map.map[61][22:26]], [])].count('Convoy') == 2
         game.missions = [convoy_here]
         game.defeat_reasons = [self.player_are_dead, self.all_convoy_is_dead]
@@ -990,7 +995,7 @@ class LevelLoader:
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
         self.init_reasons_and_missions(game)
         game.events.append(self.convoy_turn_around)
-        game.parse_cutscenes_from_csv('5_lvl')
+        game.parse_cutscenes_from_file('5_lvl')
 
         game.missions = [self.stand_on_control_point]
         game.defeat_reasons = [self.player_are_dead]
@@ -1009,7 +1014,7 @@ class LevelLoader:
 
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
         game.events.append(open_door)
-        game.parse_cutscenes_from_csv('6_lvl')
+        game.parse_cutscenes_from_file('6_lvl')
 
         self.init_reasons_and_missions(game)
         game.missions = [self.stand_on_control_point]
@@ -1025,7 +1030,7 @@ class LevelLoader:
         bullets = []
 
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
-        game.parse_cutscenes_from_csv('7_lvl')
+        game.parse_cutscenes_from_file('7_lvl')
 
         self.init_reasons_and_missions(game)
         game.missions = [self.stand_on_control_point]
@@ -1051,7 +1056,7 @@ class LevelLoader:
         bullets = []
 
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
-        game.parse_cutscenes_from_csv('8_lvl')
+        game.parse_cutscenes_from_file('8_lvl')
         self.init_reasons_and_missions(game)
 
         game.events.append(open_door)
@@ -1111,7 +1116,6 @@ class LevelLoader:
                     game.camera.apply(rect)
                     screen.blit(target_confirmed, (rect.width, rect.height))
                     if time_for_shoot == 0:
-                        play_sound(None, os.path.join(SOUND_DIR, 'other', 'boss_shot.mp3'))
                         game.make_explode(*player_moves[0])
                         time_for_explode = 150
                         time_for_shoot = 30
@@ -1200,7 +1204,7 @@ class LevelLoader:
 
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
         self.init_reasons_and_missions(game)
-        game.parse_cutscenes_from_csv('10_lvl')
+        game.parse_cutscenes_from_file('10_lvl')
 
         # Замещение воды на лаву, чтобы придать уровню зловещий вид
         for y in range(game.map.height):
@@ -1330,7 +1334,7 @@ def show_cutscene(surface, replica):
         surface.blit(character_text, (90 + image.get_width(), 410 + image.get_height() // 2))
 
         message_font = pygame.font.Font(f'{FONTS_DIR}/Thintel.ttf', 30)
-        text_y = 530
+        text_y = 510
         if isinstance(message, list):
             for sub_message in message:
                 message_text = message_font.render(sub_message, True, (255, 255, 255))
@@ -1338,7 +1342,7 @@ def show_cutscene(surface, replica):
                 text_y += message_text.get_height()
         else:
             message_text = message_font.render(message, True, (255, 255, 255))
-            surface.blit(message_text, (65, 530))
+            surface.blit(message_text, (65, text_y))
         skip_text = message_font.render('>>ПРОБЕЛ', True, (255, 255, 255))
         surface.blit(skip_text, (WINDOW_WIDTH - skip_text.get_width() - 10, WINDOW_HEIGHT - skip_text.get_height() - 10))
 
@@ -1420,7 +1424,7 @@ def start_screen():
             show_info_menu()
 
         pygame.display.flip()
-        clock.tick(100)
+        clock.tick(FPS)
 
 
 def show_titles():
