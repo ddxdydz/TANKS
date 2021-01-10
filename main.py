@@ -471,6 +471,7 @@ class Game:
             for x_step in (max((0, x - 1)), x, min(self.map.height, x + 1)):
                 self.destruct_cell(x_step, y_step)
                 self.draw_explosion(x_step, y_step)
+        play_sound(None, os.path.join(SOUND_DIR, 'other', 'boss_shot.mp3'))
 
     def make_reflect_explode(self, x, y):
         self.map.map[y][x] = self.map.get_free_block(x, y)
