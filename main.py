@@ -61,12 +61,9 @@ pygame.display.set_caption(TITLE)
 screen = pygame.display.set_mode(WINDOW_SIZE)
 clock = pygame.time.Clock()
 
+# Init temp values = 0
 player_coords = (0, 0)
-'''user_info = {'sound_value': 100,
-             'music_value': 100,
-             'name': 'user_name',
-             'high_scores': [('-', 0) for _ in range(10)],
-             'player_coords': (0, 0)}'''
+score = 0
 
 main_menu_manager = pygame_gui.UIManager(
     WINDOW_SIZE, f'{GUI_THEMES_DIR}/start_manu_theme.json')
@@ -162,7 +159,6 @@ def change_volume_background_music(volume):
     pygame.mixer.music.set_volume(volume)
 
 
-#TODO переписать
 def get_player_coords():
     return load_user_info()['player_coords']
 
@@ -204,23 +200,34 @@ def terminate():
     sys.exit()
 
 
-def save_user_info(coords=(0, 0)):
+def save_user_info(coords=(0, 0), high_score=None):
+    if not high_score:
+        high_score = load_user_info(return_user_info=True)['high_scores']
     with open(f'{SAVED_USER_INFO_DIR}/save.dat', 'wb') as file:
         pickle.dump({'name': name_entry_line.text,
                      'sound_value': sound_value_slider.current_value,
                      'music_value': music_value_slider.current_value,
-                     'high_scores': [('-', 0) for _ in range(10)],
+                     'high_scores': high_score,
                      'player_coords': coords}, file)
 
 
-def load_user_info():
+def load_user_info(return_user_info=False):
     with open(f'{SAVED_USER_INFO_DIR}/save.dat', 'rb') as file:
         user_info = pickle.load(file)
-    name_entry_line.set_text(user_info['name'])
-    sound_value_slider.set_current_value(user_info['sound_value'])
-    music_value_slider.set_current_value(user_info['music_value'])
-    change_volume_background_music(user_info['music_value'])
+    if not return_user_info:
+        name_entry_line.set_text(user_info['name'])
+        sound_value_slider.set_current_value(user_info['sound_value'])
+        music_value_slider.set_current_value(user_info['music_value'])
+        change_volume_background_music(user_info['music_value'])
     return user_info
+
+
+def save_high_score_for_current_player(score):
+    free_cell = 0
+    if load_user_info()['high_scores'][free_cell] == ('-', 0):
+        high_score = load_user_info()['high_scores']
+        high_score[free_cell] = load_user_info(return_user_info=True)['name'], score
+        save_user_info((0, 0), high_score)
 
 
 def save_game(lvl):
@@ -372,7 +379,8 @@ class Map:
                     tank_list.append(Allied((x, y), rotate_turret=rotate_turret,
                                            rotate_hull=rotate_hull, group=sprite_group, respawn=respawn))
                 elif 'Convoy' in tile_object.name:
-                    tank_list.append(Convoy((x, y), rotate_hull=rotate_hull, group=sprite_group))
+                    tank_list.append(Convoy((x, y), rotate_turret=rotate_turret,
+                                            rotate_hull=rotate_hull, group=sprite_group, respawn=respawn))
                 if destination == 'self':
                     destinations[tank_list[-1]] = None
                 elif destination == 'player':
@@ -894,6 +902,7 @@ class LevelLoader:
 
         self.all_bots_are_dead = lambda: len(game.uncontrolled_tanks) == 0
         self.player_are_dead = lambda: game.controlled_tanks[0].is_crashed
+        self.convoy_turn_around = lambda: [tank.shoot([]) for tank in game.uncontrolled_tanks if tank.__repr__() == 'Convoy']
         self.all_convoy_is_dead = lambda: [i.__repr__() for i in game.uncontrolled_tanks].count('Convoy') < 2
         game.events.append(debug_show_fps)
 
@@ -943,10 +952,10 @@ class LevelLoader:
         bullets = []
 
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
-        game.events.append(open_door)
+        self.init_reasons_and_missions(game)
+        game.events.extend([open_door, self.convoy_turn_around])
         game.parse_cutscenes_from_csv('3_lvl')
 
-        self.init_reasons_and_missions(game)
         game.missions = [self.stand_on_control_point]
         game.defeat_reasons = [self.player_are_dead]
         return game
@@ -960,9 +969,9 @@ class LevelLoader:
         bullets = []
 
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
-        game.parse_cutscenes_from_csv('4_lvl')
-
         self.init_reasons_and_missions(game)
+        game.parse_cutscenes_from_csv('4_lvl')
+        game.events.append(self.convoy_turn_around)
 
         self.init_reasons_and_missions(game)
         convoy_here = lambda: [i.__repr__() for i in sum([game.map.map[60][22:26], game.map.map[61][22:26]], [])].count('Convoy') == 2
@@ -979,9 +988,10 @@ class LevelLoader:
         bullets = []
 
         game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        self.init_reasons_and_missions(game)
+        game.events.append(self.convoy_turn_around)
         game.parse_cutscenes_from_csv('5_lvl')
 
-        self.init_reasons_and_missions(game)
         game.missions = [self.stand_on_control_point]
         game.defeat_reasons = [self.player_are_dead]
         return game
@@ -1211,42 +1221,54 @@ class LevelLoader:
 
 
 def show_highscore_board():
-    def draw_the_dialog_background(message, y=150):
-        # init title
-        font = pygame.font.Font(f'{FONTS_DIR}/Unicephalon.otf', 20)
-        text = font.render(message, True, COLOR_TEXT)
-        text_x = (WINDOW_WIDTH - text.get_width()) // 2
-        text_y = y
-        screen.blit(text, (text_x, text_y))
-
     # init fon
-    fon = pygame.Surface((WINDOW_WIDTH * 0.7, WINDOW_HEIGHT * 0.7))
-    fon.fill(pygame.Color((255, 0, 0)))
+    fon = pygame.Surface((WINDOW_WIDTH * 1, WINDOW_HEIGHT * 0.7))
+    fon.fill(pygame.Color((180, 180, 180)))
+    black_box = pygame.Surface((WINDOW_WIDTH * 0.7, WINDOW_HEIGHT * 0.85))
+    black_box.fill(pygame.Color((0, 0, 0)))
+    screen.blit(black_box, ((WINDOW_WIDTH - black_box.get_width()) // 2,
+                            (WINDOW_HEIGHT - black_box.get_height()) // 2))
     screen.blit(fon, ((WINDOW_WIDTH - fon.get_width()) // 2,
                       (WINDOW_HEIGHT - fon.get_height()) // 2))
-
+    labels = [': '.join((i[0].ljust(10, '-'), str(i[1]))) for i in load_user_info()['high_scores']]
     draw_the_dialog_background('РЕКОРДЫ')
-    draw_the_dialog_background('В РАЗРАБОТКЕ...', y=250)
-    draw_the_dialog_background('press button', y=480)
+    for y in range(250, 500, 50):
+        draw_the_dialog_background(str(labels[min(y // 50 - 5, len(labels) - 1)]), y=y)
+
+
+def calculate_highscore(end_game, begin_game):
+    lvl_score = len(begin_game.uncontrolled_tanks) - len(end_game.uncontrolled_tanks)
+    return lvl_score
+
+
+def draw_the_dialog_background(message, y=150):
+    # init title
+    size = 60
+    if len(message) > 10:
+        size //= 2
+    font = pygame.font.Font(f'{FONTS_DIR}/Thintel.ttf', size)
+    text = font.render(message, True, COLOR_TEXT)
+    text_x = (WINDOW_WIDTH - text.get_width()) // 2
+    text_y = y
+    screen.blit(text, (text_x, text_y))
 
 
 def show_info_menu():
-    def draw_the_dialog_background(message, y=150):
-        # init title
-        font = pygame.font.Font(f'{FONTS_DIR}/Unicephalon.otf', 20)
-        text = font.render(message, True, COLOR_TEXT)
-        text_x = (WINDOW_WIDTH - text.get_width()) // 2
-        text_y = y
-        screen.blit(text, (text_x, text_y))
     # init fon
-    fon = pygame.Surface((WINDOW_WIDTH * 0.7, WINDOW_HEIGHT * 0.7))
-    fon.fill(pygame.Color((0, 255, 0)))
+    fon = pygame.Surface((WINDOW_WIDTH * 1, WINDOW_HEIGHT * 0.70))
+    black_box = pygame.Surface((WINDOW_WIDTH * 0.7, WINDOW_HEIGHT * 0.85))
+    fon.fill(pygame.Color((180, 180, 180)))
+    black_box.fill(pygame.Color((0, 0, 0)))
+    screen.blit(black_box, ((WINDOW_WIDTH - black_box.get_width()) // 2,
+                      (WINDOW_HEIGHT - black_box.get_height()) // 2))
     screen.blit(fon, ((WINDOW_WIDTH - fon.get_width()) // 2,
                       (WINDOW_HEIGHT - fon.get_height()) // 2))
 
+    labels = ('W, S - кнопки движения корпуса.', 'A, D - кнопки поворота корпуса.', 'Q, E - кнопки поворота башни.',
+              'R - кнопка стрельбы.', 'Чтобы выиграть - выполняй приказы. Отбой!', '')
     draw_the_dialog_background('КАК ИГРАТЬ')
-    draw_the_dialog_background('В РАЗРАБОТКЕ...', y=250)
-    draw_the_dialog_background('press button', y=480)
+    for y in range(250, 500, 50):
+        draw_the_dialog_background(labels[min(y // 50 - 5, len(labels) - 1)], y=y)
 
 
 def show_confirmation_dialog(manager):
@@ -1371,6 +1393,7 @@ def start_screen():
                     elif event.ui_element == music_btn:
                         sound_value_slider.hide()
                         music_value_slider.show()
+
             if pygame.mouse.get_pos()[1] < 525:
                 if sound_value_slider.visible:
                     sound_value_slider.hide()
@@ -1397,7 +1420,28 @@ def start_screen():
             show_info_menu()
 
         pygame.display.flip()
+        clock.tick(100)
+
+
+def show_titles():
+    play_background_music('titles')
+    file = open(f'{CUTSCENES_DIR}/titles', 'r', encoding='utf-8')
+    labels = [line.strip() for line in file]
+
+    file.close()
+    for timer in range(0, 3500, 2):
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    return start_screen()
+        screen.fill('#000000')
+        for y in range(WINDOW_HEIGHT, 5000, 50):
+            draw_the_dialog_background(labels[min((y // 50 - WINDOW_HEIGHT // 50) - 1, len(labels) - 1)], y=y - timer)
+
+        pygame.display.flip()
         clock.tick(FPS)
+
+    return start_screen()
 
 
 def main():
@@ -1427,12 +1471,18 @@ def main():
             if event.type == pygame.KEYDOWN:
                 if event.key and game.end_game_and_return_status(screen, return_status=True) and game.timer > 15:
                     status = game.end_game_and_return_status(screen, return_status=True)
+                    global score
                     if status == 'win':
+                        temp_score = calculate_highscore(game, getattr(lvl_loader, f'init_lvl{lvl_count}_scene')())
+                        score += temp_score
+                        save_high_score_for_current_player(score)
                         lvl_count += 1
-                        save_game(lvl_count)
-                    if lvl_count == 10:
+                        save_game(min(lvl_count, 10))
+                    if lvl_count == 11:
+                        show_titles()
                         game = start_screen()
                     else:
+                        score = 0
                         game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')()
 
                 if event.key == pygame.K_SPACE and game.show_cutscenes_and_return_status(return_status=True):

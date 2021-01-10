@@ -82,7 +82,7 @@
    <properties>
     <property name="destination" value="pos (23, 61)"/>
     <property name="rotate_hull" type="int" value="180"/>
-    <property name="rotate_turret" type="int" value="-1"/>
+    <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>
   <object id="6" name="Shadow" x="40" y="2480" width="1000" height="40"/>
@@ -91,14 +91,14 @@
    <properties>
     <property name="destination" value="pos (23, 61)"/>
     <property name="rotate_hull" type="int" value="180"/>
-    <property name="rotate_turret" type="int" value="-1"/>
+    <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>
   <object id="9" name="Convoy" x="480" y="200" width="40" height="40">
    <properties>
     <property name="destination" value="pos (23, 61)"/>
     <property name="rotate_hull" type="int" value="180"/>
-    <property name="rotate_turret" type="int" value="-1"/>
+    <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>
   <object id="10" name="Tank" x="960" y="1400" width="40" height="40">

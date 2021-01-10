@@ -169,14 +169,14 @@
    <properties>
     <property name="destination" value="self"/>
     <property name="rotate_hull" type="int" value="180"/>
-    <property name="rotate_turret" type="int" value="-1"/>
+    <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>
   <object id="27" name="Convoy" x="0" y="40" width="40" height="40">
    <properties>
     <property name="destination" value="self"/>
     <property name="rotate_hull" type="int" value="270"/>
-    <property name="rotate_turret" type="int" value="-1"/>
+    <property name="rotate_turret" type="int" value="0"/>
    </properties>
   </object>
  </objectgroup>
