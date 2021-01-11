@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.4" tiledversion="1.4.3" orientation="orthogonal" renderorder="right-down" width="18" height="50" tilewidth="40" tileheight="40" infinite="0" nextlayerid="3" nextobjectid="28">
+ <tileset firstgid="1" source="tiles_map.tsx"/>
+ <layer id="1" name="Слой тайлов 1" width="18" height="50">
+  <data encoding="csv">
+8,8,8,1,6,6,6,6,6,6,6,6,6,6,6,5,5,3,
+8,8,8,1,6,6,6,6,6,6,6,2,8,8,6,6,5,3,
+8,8,8,1,6,6,6,6,6,6,6,2,8,8,6,6,5,3,
+6,6,6,6,6,6,6,6,6,6,6,6,8,8,6,6,5,3,
+6,6,6,6,6,6,6,6,2,6,6,6,8,8,6,6,5,3,
+2,2,2,2,2,2,2,2,6,6,6,6,8,8,6,6,5,3,
+8,8,8,8,13,6,6,6,6,6,6,6,8,8,6,6,5,3,
+8,8,8,8,13,6,6,4,6,6,6,6,8,8,6,6,5,3,
+8,1,8,8,13,6,6,5,5,5,5,9,8,8,9,5,3,3,
+8,1,1,8,13,6,2,3,3,3,3,1,8,8,1,3,3,3,
+2,2,2,2,2,2,3,3,3,3,3,1,8,8,1,3,3,3,
+7,7,7,11,11,3,3,3,3,3,3,1,8,8,1,3,3,3,
+7,7,7,11,11,3,3,3,3,3,3,1,8,8,1,3,3,3,
+7,7,5,5,5,2,5,5,5,5,5,1,8,8,1,3,3,3,
+5,5,5,6,2,6,6,6,6,6,5,9,8,8,9,3,3,3,
+6,6,6,2,6,6,6,6,6,6,5,5,8,8,5,5,5,3,
+6,6,2,7,7,7,7,6,6,6,6,6,8,8,6,5,5,3,
+6,2,7,7,7,7,7,7,6,6,6,6,8,8,6,6,5,3,
+2,2,8,8,8,8,8,8,2,6,6,6,8,8,6,6,5,3,
+8,8,8,8,8,8,8,8,2,6,6,6,8,8,6,6,5,3,
+8,8,8,8,8,8,8,8,2,6,6,6,8,8,6,6,5,3,
+8,8,8,8,8,8,8,8,2,6,6,6,8,8,6,6,5,3,
+8,8,8,8,8,8,8,8,2,6,6,2,8,8,6,5,5,3,
+8,8,8,8,8,8,8,8,2,6,2,2,2,8,6,5,5,3,
+8,8,8,8,8,8,8,8,2,6,6,2,8,8,6,5,5,3,
+8,8,8,8,8,8,8,8,2,6,6,6,8,8,6,5,5,3,
+8,1,8,8,8,8,8,8,2,6,6,6,8,8,2,5,5,3,
+8,1,1,8,8,4,8,8,2,6,6,6,8,2,2,2,5,3,
+8,8,8,8,8,8,8,8,2,6,6,6,8,8,2,5,5,3,
+8,8,8,8,2,8,8,8,2,6,6,6,8,8,6,5,5,3,
+2,2,13,13,2,13,13,2,2,6,6,6,8,8,6,5,5,3,
+6,6,6,6,6,6,6,7,7,7,7,7,8,8,6,6,5,3,
+6,6,6,6,6,6,7,7,7,7,7,7,8,8,6,6,5,3,
+2,6,6,6,7,7,7,7,2,8,8,8,8,8,6,6,5,5,
+2,6,6,7,7,7,6,6,2,8,8,8,8,8,6,6,5,5,
+2,6,6,7,7,7,6,6,2,2,13,13,2,13,13,2,13,13,
+2,6,6,7,7,7,6,6,2,2,8,8,2,8,8,2,8,8,
+2,2,6,7,7,7,6,2,2,2,8,8,8,8,8,8,8,8,
+2,6,2,7,7,7,2,6,2,2,8,4,8,8,8,8,8,8,
+2,2,2,7,7,7,2,2,2,2,8,8,8,8,8,8,8,8,
+6,6,6,7,7,7,1,1,2,2,8,8,8,8,8,8,8,8,
+6,6,6,7,7,7,6,1,2,2,1,1,8,8,8,8,8,8,
+6,6,6,7,7,7,6,6,2,2,13,2,2,2,2,2,2,2,
+6,6,6,7,7,7,2,6,2,8,8,8,8,8,8,8,8,8,
+6,6,6,7,7,7,6,2,2,8,8,8,8,8,8,8,8,8,
+6,6,6,7,7,7,7,7,8,8,8,8,8,8,8,8,8,8,
+6,6,6,7,7,7,7,7,8,8,8,8,8,8,8,8,1,2,
+6,6,6,6,7,7,7,7,8,8,8,8,8,8,8,8,8,2,
+6,1,1,6,1,1,6,2,2,8,8,8,8,8,1,8,12,2,
+6,1,1,6,1,1,2,6,2,8,8,8,8,8,2,2,2,2
+</data>
+ </layer>
+ <objectgroup id="2" name="Слой объектов 1">
+  <object id="1" name="Shadow" x="0" y="0" width="80" height="2000"/>
+  <object id="2" name="Shadow" x="680" y="0" width="40" height="2000"/>
+  <object id="3" name="Shadow" x="80" y="0" width="600" height="40"/>
+  <object id="4" name="Shadow" x="80" y="1960" width="600" height="40"/>
+  <object id="5" name="Player" x="280" y="120" width="40" height="40">
+   <properties>
+    <property name="destination" value=""/>
+    <property name="rotate_hull" type="int" value="0"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="6" name="Allied" x="200" y="40" width="40" height="40">
+   <properties>
+    <property name="destination" value="player"/>
+    <property name="rotate_hull" type="int" value="270"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="8" name="Allied" x="200" y="120" width="40" height="40">
+   <properties>
+    <property name="destination" value="player"/>
+    <property name="rotate_hull" type="int" value="270"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="9" name="Tank" x="120" y="280" width="40" height="40">
+   <properties>
+    <property name="destination" value="self"/>
+    <property name="rotate_hull" type="int" value="270"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="12" name="Tank" x="120" y="320" width="40" height="40">
+   <properties>
+    <property name="destination" value="self"/>
+    <property name="rotate_hull" type="int" value="270"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="13" name="Tank" x="520" y="1520" width="40" height="40">
+   <properties>
+    <property name="destination" value="self"/>
+    <property name="rotate_hull" type="int" value="0"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="15" name="Heavy" x="400" y="1520" width="40" height="40">
+   <properties>
+    <property name="destination" value="self"/>
+    <property name="rotate_hull" type="int" value="0"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="16" name="Heavy" x="240" y="1080" width="40" height="40">
+   <properties>
+    <property name="destination" value="self"/>
+    <property name="rotate_hull" type="int" value="180"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="17" name="Heavy" x="120" y="1080" width="40" height="40">
+   <properties>
+    <property name="destination" value="self"/>
+    <property name="rotate_hull" type="int" value="180"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="20" name="Tank" x="200" y="880" width="40" height="40">
+   <properties>
+    <property name="destination" value="detect range(8, 15), range(21, 28)"/>
+    <property name="rotate_hull" type="int" value="0"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="21" name="Tank" x="240" y="880" width="40" height="40">
+   <properties>
+    <property name="destination" value="detect range(8, 15), range(17, 28)"/>
+    <property name="rotate_hull" type="int" value="0"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="22" name="Tank" x="600" y="1800" width="40" height="40">
+   <properties>
+    <property name="destination" value="detect range(0, 14), range(45, 49)"/>
+    <property name="rotate_hull" type="int" value="90"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="23" name="Tank" x="520" y="1880" width="40" height="40">
+   <properties>
+    <property name="destination" value="detect range(0, 14), range(45, 49)"/>
+    <property name="rotate_hull" type="int" value="90"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="24" name="Tank" x="80" y="1880" width="40" height="40">
+   <properties>
+    <property name="destination" value="detect range(0, 7), range(38, 49)"/>
+    <property name="rotate_hull" type="int" value="0"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="25" name="Tank" x="240" y="1880" width="40" height="40">
+   <properties>
+    <property name="destination" value="detect range(0, 7), range(38, 49)"/>
+    <property name="rotate_hull" type="int" value="0"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="26" name="Convoy" x="40" y="0" width="40" height="40">
+   <properties>
+    <property name="destination" value="self"/>
+    <property name="rotate_hull" type="int" value="180"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="27" name="Convoy" x="0" y="40" width="40" height="40">
+   <properties>
+    <property name="destination" value="self"/>
+    <property name="rotate_hull" type="int" value="270"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+ </objectgroup>
+</map>

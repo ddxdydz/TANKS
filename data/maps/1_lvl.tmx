@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.4" tiledversion="1.4.3" orientation="orthogonal" renderorder="right-down" width="15" height="15" tilewidth="40" tileheight="40" infinite="0" nextlayerid="4" nextobjectid="12">
+ <tileset firstgid="1" source="tiles_map.tsx"/>
+ <layer id="1" name="Слой тайлов 1" width="15" height="15">
+  <data encoding="csv">
+6,6,5,6,6,6,6,6,6,6,1,1,1,6,6,
+6,6,5,6,6,6,5,5,5,5,5,5,5,5,1,
+6,6,1,1,5,6,1,1,1,6,6,1,1,5,1,
+6,6,1,6,5,5,6,6,6,5,5,6,1,5,1,
+6,6,6,6,5,1,1,1,1,1,6,5,6,5,1,
+6,5,6,1,5,6,6,6,6,5,5,1,6,5,1,
+6,5,6,1,6,5,5,5,5,5,6,1,6,5,1,
+6,5,6,1,6,5,5,5,5,5,6,1,6,6,5,
+6,5,6,1,6,5,5,5,5,5,6,1,5,6,5,
+6,5,6,1,6,5,5,5,5,6,5,1,5,6,5,
+6,6,6,6,6,1,1,1,1,1,6,6,6,6,5,
+5,6,1,6,6,5,6,6,6,6,6,6,1,6,5,
+5,5,1,1,6,6,1,1,1,6,6,1,1,5,5,
+5,5,5,5,5,5,5,6,6,5,5,5,5,5,5,
+5,5,5,5,5,5,6,6,6,6,5,5,5,5,5
+</data>
+ </layer>
+ <objectgroup id="3" name="Слой объектов 1">
+  <object id="3" name="Tank 1" x="40" y="520" width="40" height="40">
+   <properties>
+    <property name="destination" value="player"/>
+    <property name="rotate_hull" type="int" value="180"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="4" name="Player" x="520" y="40" width="40" height="40">
+   <properties>
+    <property name="destination" value=""/>
+    <property name="rotate_hull" type="int" value="180"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="6" name="Shadow" x="560" y="0" width="40" height="600"/>
+  <object id="8" name="Shadow" x="0" y="0" width="40" height="600"/>
+  <object id="9" name="Shadow" x="40" y="0" width="520" height="40"/>
+  <object id="10" name="Shadow" x="40" y="560" width="520" height="40"/>
+ </objectgroup>
+</map>
