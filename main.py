@@ -168,7 +168,7 @@ def set_player_coords(coords):
 
 
 def load_image(name, colorkey=None):
-    fullname = os.path.join('data', name)
+    fullname = os.path.join('data/sprites', name)
 
     if not os.path.isfile(fullname):
         print(f"Файл с изображением '{fullname}' не найден")
@@ -222,12 +222,21 @@ def load_user_info(return_user_info=False):
     return user_info
 
 
-def save_high_score_for_current_player(score):
-    free_cell = 0
-    if load_user_info()['high_scores'][free_cell] == ('-', 0):
-        high_score = load_user_info()['high_scores']
-        high_score[free_cell] = load_user_info(return_user_info=True)['name'], score
-        save_user_info((0, 0), high_score)
+def save_high_score_for_current_player(lvl_score):
+    high_score = load_user_info(return_user_info=True)['high_scores']
+    names = [item[0] for item in high_score]
+    for free_cell in range(0, len(high_score)):
+        if load_user_info(return_user_info=True)['name'] not in names:
+            if high_score[free_cell] == ('-', 0):
+                high_score[free_cell] = load_user_info(return_user_info=True)['name'], lvl_score
+                save_user_info((0, 0), high_score)
+                return
+
+        elif high_score[free_cell][0] == load_user_info(return_user_info=True)['name']:
+            if lvl_score > high_score[free_cell][1]:
+                high_score[free_cell] = load_user_info(return_user_info=True)['name'], lvl_score
+                save_user_info((0, 0), high_score)
+                return
 
 
 def save_game(lvl):
@@ -753,9 +762,12 @@ class Game:
         results = [mission() for mission in self.missions]
         if any(results):
             if not return_status:
+                _, begin_uncontrolled, _ = self.map.give_player_list_and_tanks_list_and_destinations(self.sprites_group[0])
+                temp_score = calculate_highscore(self.uncontrolled_tanks, begin_uncontrolled)
                 if self.timer == 0:
                     play_background_music('win')
-                show_game_message(screen, 'YOU WON!', 'press any button to continue')
+                show_game_message(screen, 'YOU WON!', f'press any button to continue', '', '', '', '', '',
+                                  f'Очки за уровень: {temp_score}')
                 self.timer += 1
             return 'win'
 
@@ -1242,7 +1254,12 @@ def show_highscore_board():
 
 
 def calculate_highscore(end_game, begin_game):
-    lvl_score = len(begin_game.uncontrolled_tanks) - len(end_game.uncontrolled_tanks)
+    if not isinstance(end_game, Game) and not isinstance(begin_game, Game):
+        lvl_score = len([tank for tank in begin_game if tank.team == 'black']) \
+                    - len([tank for tank in end_game if tank.team == 'black'])
+    else:
+        lvl_score = len([tank for tank in begin_game.uncontrolled_tanks if tank.team == 'black'])\
+                    - len([tank for tank in end_game.uncontrolled_tanks if tank.team == 'black'])
     return lvl_score
 
 
@@ -1270,13 +1287,21 @@ def show_info_menu():
                       (WINDOW_HEIGHT - fon.get_height()) // 2))
 
     labels = ('W, S - кнопки движения корпуса.', 'A, D - кнопки поворота корпуса.', 'Q, E - кнопки поворота башни.',
-              'R - кнопка стрельбы.', 'Чтобы выиграть - выполняй приказы. Отбой!', '')
+              'R - кнопка стрельбы.', 'F12 - скриншот игры. Лежит в папке data/screenshots',
+              'Если любишь собирать очки, я расскажу тебе секретик...',
+              'Очки начисляются за каждого убитого врага,',
+              'и когда ты успешно проходишь уровень.',
+              'Чтобы получить больше очков, тебе нужно пройти,',
+              'все уровни без единой смерти, убивая как можно больше.',
+              'Если умрешь, все очки потеряются. Ну как тебе вызов, а?',
+              '',
+              'Чтобы выиграть - выполняй приказы. Отбой!', '')
     draw_the_dialog_background('КАК ИГРАТЬ')
-    for y in range(250, 500, 50):
-        draw_the_dialog_background(labels[min(y // 50 - 5, len(labels) - 1)], y=y)
+    for y in range(200, 500, 25):
+        draw_the_dialog_background(labels[min((y // 25) - (200 // 25), len(labels) - 1)], y=y)
 
 
-def show_confirmation_dialog(manager):
+def show_confirmation_dialog(manager, action_long_desc):
     dialog_size = (260, 200)
     confirmation_dialog = pygame_gui.windows.UIConfirmationDialog(
         rect=pygame.Rect(
@@ -1285,7 +1310,7 @@ def show_confirmation_dialog(manager):
             dialog_size),
         manager=manager,
         window_title='Подтвеждение',
-        action_long_desc='Вы уверены, что хотите вытйти?',
+        action_long_desc=action_long_desc,
         action_short_name='OK',
         blocking=True)
     return confirmation_dialog
@@ -1351,6 +1376,12 @@ def show_cutscene(surface, replica):
 def start_screen():
     play_background_music('menu')
 
+    def new_game():
+        global score
+        score = 0
+        save_game(1)
+        return getattr(LevelLoader(), f'init_lvl{1}_scene')()
+
     def draw_the_main_background():
         # init fon
         fon = pygame.Surface(WINDOW_SIZE)
@@ -1366,6 +1397,8 @@ def start_screen():
     draw_the_main_background()
     do_show_info = False
     do_show_scores = False
+    conf_dialog = None
+    func_to_confirm = None
     while True:
         time_delta = clock.tick(60) / 1000.0
         for event in pygame.event.get():
@@ -1383,21 +1416,37 @@ def start_screen():
                     if event.ui_element == start_menu_btn_dict['CONTINUE']:
                         return getattr(LevelLoader(), f'init_lvl{load_saved_game()}_scene')()
                     elif event.ui_element == start_menu_btn_dict['NEW GAME']:
-                        save_game(1)
-                        return getattr(LevelLoader(), f'init_lvl{1}_scene')()
+                        if load_saved_game() > 1:
+                            conf_dialog = show_confirmation_dialog(main_menu_manager, 'Найдена сохраненная игра.'
+                                                                                  ' Вы уверены, что хотите начать'
+                                                                                  ' сначала?')
+                            func_to_confirm = new_game
+                        else:
+                            return new_game()
+
                     elif event.ui_element == start_menu_btn_dict['HIGH SCORES']:
                         do_show_scores = True
                     elif event.ui_element == start_menu_btn_dict['HOW TO PLAY']:
                         do_show_info = True
                     elif event.ui_element == start_menu_btn_dict['EXIT']:
                         save_user_info()
-                        terminate()  # exit
+                        conf_dialog = show_confirmation_dialog(main_menu_manager, 'Вы уверены, что хотите выйти?')
+                        func_to_confirm = terminate
                     elif event.ui_element == sound_btn:
                         sound_value_slider.show()
                         music_value_slider.hide()
                     elif event.ui_element == music_btn:
                         sound_value_slider.hide()
                         music_value_slider.show()
+
+            if conf_dialog:
+                if conf_dialog.process_event(event):
+                    if func_to_confirm:
+                        rect = conf_dialog.confirm_button.get_abs_rect()
+                        x, y, w, h = rect.x, rect.y, rect.w, rect.h
+                        mouse_x, mouse_y = event.pos
+                        if mouse_x in range(x, x + w) and mouse_y in range(y, y + h):
+                            return func_to_confirm()
 
             if pygame.mouse.get_pos()[1] < 525:
                 if sound_value_slider.visible:
@@ -1479,15 +1528,18 @@ def main():
                     global score
                     if status == 'win':
                         temp_score = calculate_highscore(game, getattr(lvl_loader, f'init_lvl{lvl_count}_scene')())
-                        score += temp_score
+                        score = score + temp_score
                         save_high_score_for_current_player(score)
+                        if lvl_count != load_saved_game():
+                            lvl_count = load_saved_game()
                         lvl_count += 1
                         save_game(min(lvl_count, 10))
+                    elif status == 'lose':
+                        score = 0
                     if lvl_count == 11:
                         show_titles()
                         game = start_screen()
                     else:
-                        score = 0
                         game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')()
 
                 if event.key == pygame.K_SPACE and game.show_cutscenes_and_return_status(return_status=True):

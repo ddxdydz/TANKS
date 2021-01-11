@@ -55,15 +55,15 @@ sprites_dict = {'Tank': (red_tank_hull, red_tank_turret),
 
 # init character for cutscenes
 unknown = pygame.transform.scale(load_image(
-            os.path.join('sprites', "unknown.png"), colorkey=0), (100, 100))
+            "unknown.png", colorkey=0), (100, 100))
 comander = pygame.transform.scale(load_image(
-            os.path.join('sprites', "comander.png"), colorkey=0), (100, 100))
+            "comander.png", colorkey=0), (100, 100))
 soldier = pygame.transform.scale(load_image(
-            os.path.join('sprites', "allied.png"), colorkey=0), (100, 100))
+            "allied.png", colorkey=0), (100, 100))
 radar = pygame.transform.scale(load_image(
-            os.path.join('sprites', "convoy.png"), colorkey=0), (100, 100))
+            "convoy.png", colorkey=0), (100, 100))
 serzant = pygame.transform.scale(load_image(
-            os.path.join('sprites', "serzant.png"), colorkey=0), (100, 100))
+            "serzant.png", colorkey=0), (100, 100))
 CHARACTERS_DICT = {None: unknown,
                    'Командир Брэдли': comander,
                    'Солдат': soldier,
