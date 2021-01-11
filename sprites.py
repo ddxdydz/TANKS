@@ -24,15 +24,23 @@ heavy_tank_hull = pygame.transform.scale(load_image(
 heavy_tank_turret = pygame.transform.scale(load_image(
             "heavy_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 crash_tank = pygame.transform.scale(load_image(
-            "crached_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+            "crached_turret.png", colorkey=0), (TILE_SIZE, TILE_SIZE))
 convoy_hull = pygame.transform.scale(load_image(
             "convoy_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 convoy_turret = pygame.transform.scale(load_image(
-            "convoy_turret.png", colorkey=0), (TILE_SIZE, TILE_SIZE))
+            "convoy_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 convoy_crash = pygame.transform.scale(load_image(
             "convoy_crash.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 bullet_0 = pygame.transform.scale(load_image(
             "bullet_0.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+bullet_hero = pygame.transform.scale(load_image(
+            "bullet_hero.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+bullet_heavy = pygame.transform.scale(load_image(
+            "bullet_heavy.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+bullet_beast = pygame.transform.scale(load_image(
+            "bullet_beast.png", colorkey=0), (TILE_SIZE, TILE_SIZE))
+bullet_tnt = pygame.transform.scale(load_image(
+            "bullet_tnt.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 boss_hull = pygame.transform.scale(load_image(
             "boss.png", colorkey=-1), (640, 240))
 
@@ -40,6 +48,8 @@ lava = pygame.transform.scale(load_image(
             "lava.jpg", colorkey=0), (TILE_SIZE, TILE_SIZE))
 explosion = pygame.transform.scale(load_image(
             "explosion.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+smoke = pygame.transform.scale(load_image(
+            "smoke.png", colorkey=0), (TILE_SIZE, TILE_SIZE))
 
 target_search = pygame.transform.scale(load_image(
             "target_search.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
@@ -72,6 +82,10 @@ CHARACTERS_DICT = {None: unknown,
 
 
 normal_bullet_dict = {0: bullet_0}
+hero_bullet_dict = {0: bullet_hero}
+heavy_bullet_dict = {0: bullet_heavy}
+beast_bullet_dict = {0: bullet_beast}
+tnt_bullet_dict = {0: bullet_tnt}
 
 
 def calculate_distance_for_player(object):
@@ -92,8 +106,11 @@ def play_sound(object, name_of_sound):
         if name_of_sound == 'death':
             volume += 0.2
         sound.set_volume(volume)
-        sound.play(maxtime=1000, fade_ms=200)
-        sound.fadeout(500)
+        if object.__repr__() == 'Beast' and name_of_sound == 'death':
+            sound.play()
+        else:
+            sound.play(maxtime=1000, fade_ms=200)
+            sound.fadeout(500)
     else:
         volume = load_user_info()['sound_value'] / 100
         sound = pygame.mixer.Sound(name_of_sound)
@@ -334,6 +351,8 @@ class Player(Tank):
 
         self.is_stop = True
 
+        self.dict_id_bullets = hero_bullet_dict
+
     def __repr__(self):
         return 'Player'
 
@@ -385,6 +404,8 @@ class Beast(Tank):
 
         self.move_forward_cooldown = 16 * FPS
 
+        self.dict_id_bullets = beast_bullet_dict
+
     def __repr__(self):
         return 'Beast'
 
@@ -407,6 +428,8 @@ class Heavy(Tank):
         self.speed = 0.10
         self.accuracy = 0.40
         self.health = 2
+
+        self.dict_id_bullets = heavy_bullet_dict
 
     def __repr__(self):
         return 'Heavy'

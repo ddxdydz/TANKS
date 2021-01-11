@@ -466,6 +466,7 @@ class Game:
             self.draw_explosion(bullet_x, bullet_y)
         elif self.map.map[bullet_y][bullet_x] in self.map.break_tiles:
             self.map.map[bullet_y][bullet_x] = self.map.get_free_block(bullet_x, bullet_y)
+            self.draw_smoke(bullet_x, bullet_y)
         elif self.map.get_type_of_tile(bullet_x, bullet_y) == 'tnt':
             self.make_reflect_explode(bullet_x, bullet_y)
             self.draw_explosion(bullet_x, bullet_y)
@@ -474,6 +475,11 @@ class Game:
         rect = pygame.Rect(0, 0, x * TILE_SIZE, y * TILE_SIZE)
         self.camera.apply(rect)
         screen.blit(explosion, (rect.w, rect.h))
+
+    def draw_smoke(self, x, y):
+        rect = pygame.Rect(0, 0, x * TILE_SIZE, y * TILE_SIZE)
+        self.camera.apply(rect)
+        screen.blit(smoke, (rect.w, rect.h))
 
     def make_explode(self, x, y):
         for y_step in (max((0, y - 1)), y, min(self.map.height, y + 1)):
@@ -486,7 +492,7 @@ class Game:
         self.map.map[y][x] = self.map.get_free_block(x, y)
         for angle in range(0, 271, 90):
             self.bullets.append(Bullet(
-                (x, y), angle, self.controlled_tanks[0].dict_id_bullets[0]))
+                (x, y), angle, tnt_bullet_dict[0]))
 
     def update_controlled_tanks(self):
         for tank in self.controlled_tanks:
