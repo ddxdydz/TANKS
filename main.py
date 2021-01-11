@@ -448,10 +448,10 @@ class Game:
             if not self.map.is_free((bullet_x, bullet_y)):
                 if 'water' not in self.map.get_type_of_tile(bullet_x, bullet_y):
                     del self.bullets[self.bullets.index(bullet)]
-                    self.destruct_cell(bullet_x, bullet_y)
-                    bullet.sounds_break()
-                else:
-                    bullet.sounds_unbreak()
+                    if self.destruct_cell(bullet_x, bullet_y) == 'break':
+                        bullet.sounds_break()
+                    else:
+                        bullet.sounds_unbreak()
 
     def destruct_cell(self, bullet_x, bullet_y):
         if getattr(self.map.map[bullet_y][bullet_x], 'team', False):
@@ -463,18 +463,30 @@ class Game:
                     tank.clear_the_tank()
                 else:
                     tank.destroy_the_tank(self.uncontrolled_tanks)
-            self.draw_explosion(bullet_x, bullet_y)
+                self.draw_explosion(bullet_x, bullet_y)
+                return 'break'
+            self.draw_flash(bullet_x, bullet_y)
+            return 'unbreak'
         elif self.map.map[bullet_y][bullet_x] in self.map.break_tiles:
             self.map.map[bullet_y][bullet_x] = self.map.get_free_block(bullet_x, bullet_y)
             self.draw_smoke(bullet_x, bullet_y)
         elif self.map.get_type_of_tile(bullet_x, bullet_y) == 'tnt':
             self.make_reflect_explode(bullet_x, bullet_y)
             self.draw_explosion(bullet_x, bullet_y)
+        elif self.map.get_tile_id((bullet_x, bullet_y)) in self.map.unbreak_tiles:
+            self.draw_flash(bullet_x, bullet_y)
+            return 'unbreak'
+        return 'break'
 
     def draw_explosion(self, x, y):
         rect = pygame.Rect(0, 0, x * TILE_SIZE, y * TILE_SIZE)
         self.camera.apply(rect)
         screen.blit(explosion, (rect.w, rect.h))
+
+    def draw_flash(self, x, y):
+        rect = pygame.Rect(0, 0, x * TILE_SIZE, y * TILE_SIZE)
+        self.camera.apply(rect)
+        screen.blit(flash, (rect.w, rect.h))
 
     def draw_smoke(self, x, y):
         rect = pygame.Rect(0, 0, x * TILE_SIZE, y * TILE_SIZE)
@@ -1439,6 +1451,7 @@ def start_screen():
                         conf_dialog = show_confirmation_dialog(main_menu_manager, 'Вы уверены, что хотите выйти?')
                         func_to_confirm = terminate
                     elif event.ui_element == sound_btn:
+                        play_sound(None, os.path.join(SOUND_DIR, 'tanks', 'Player', 'fire.mp3'))
                         sound_value_slider.show()
                         music_value_slider.hide()
                     elif event.ui_element == music_btn:
@@ -1477,7 +1490,8 @@ def start_screen():
         if do_show_scores:
             show_highscore_board()
         if do_show_info:
-            show_info_menu()
+            # show_info_menu()
+            show_titles()
 
         pygame.display.flip()
         clock.tick(FPS)
@@ -1489,7 +1503,7 @@ def show_titles():
     labels = [line.strip() for line in file]
 
     file.close()
-    for timer in range(0, 3500, 2):
+    for timer in range(0, 3700, 2):
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
@@ -1532,6 +1546,7 @@ def main():
                 if event.key and game.end_game_and_return_status(screen, return_status=True) and game.timer > 15:
                     status = game.end_game_and_return_status(screen, return_status=True)
                     global score
+                    print(load_saved_game())
                     if status == 'win':
                         temp_score = calculate_highscore(game, getattr(lvl_loader, f'init_lvl{lvl_count}_scene')())
                         score = score + temp_score

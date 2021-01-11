@@ -36,7 +36,7 @@ bullet_0 = pygame.transform.scale(load_image(
 bullet_hero = pygame.transform.scale(load_image(
             "bullet_hero.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 bullet_heavy = pygame.transform.scale(load_image(
-            "bullet_heavy.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+            "bullet_heavy.png", colorkey=0), (TILE_SIZE, TILE_SIZE))
 bullet_beast = pygame.transform.scale(load_image(
             "bullet_beast.png", colorkey=0), (TILE_SIZE, TILE_SIZE))
 bullet_tnt = pygame.transform.scale(load_image(
@@ -48,6 +48,8 @@ lava = pygame.transform.scale(load_image(
             "lava.jpg", colorkey=0), (TILE_SIZE, TILE_SIZE))
 explosion = pygame.transform.scale(load_image(
             "explosion.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
+flash = pygame.transform.scale(load_image(
+            "unbreak.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 smoke = pygame.transform.scale(load_image(
             "smoke.png", colorkey=0), (TILE_SIZE, TILE_SIZE))
 
@@ -106,7 +108,7 @@ def play_sound(object, name_of_sound):
         if name_of_sound == 'death':
             volume += 0.2
         sound.set_volume(volume)
-        if object.__repr__() == 'Beast' and name_of_sound == 'death':
+        if (object.__repr__() == 'Beast' and name_of_sound == 'death') or name_of_sound == 'near_fly':
             sound.play()
         else:
             sound.play(maxtime=1000, fade_ms=200)
@@ -348,6 +350,7 @@ class Player(Tank):
         self.sound_dict['turn_hull'] = pygame.mixer.Sound(
             os.path.join(SOUND_DIR, 'tanks', self.__repr__(), 'turn_hull.mp3'))
         self.team = 'green'
+        self.health = 2
 
         self.is_stop = True
 
@@ -483,5 +486,5 @@ class Bullet(pygame.sprite.Sprite):
 
     def sound_near_with_player(self):
         distance = calculate_distance_for_player(self)
-        if distance < 1.5:
+        if distance == 0.43 and self != hero_bullet_dict[0]:
             play_sound(self, 'near_fly')
