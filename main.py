@@ -1,29 +1,32 @@
 import os
 import sys
-import datetime as dt
 from random import random, choice
+from datetime import datetime
 from queue import Queue
+
 import pygame
 import pygame_gui
-import pytmx
-from sprites import *
 import pickle
+import pytmx
+
+from game_objects import *
 
 
 WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 600, 600
 TITLE = 'TANK BATTLES'
 TILE_SIZE = 40
 FPS = 15
+
 MAPS_DIR = 'data/maps'
 FONTS_DIR = 'data/fonts'
 GUI_THEMES_DIR = 'data/gui_themes'
 SAVED_SESSION_DIR = 'data/saved sessions'
 SAVED_USER_INFO_DIR = 'data/saved user info'
-SOUND_DIR = 'sounds'
+SOUND_DIR = 'data/sounds'
 CUTSCENES_DIR = 'data/cutscenes'
 SPRITES_DIR = 'sprites'
 
-# Control
+# Definition of constants control
 FORWARD = 91
 BACK = 92
 TURN_RIGHT = 93
@@ -60,7 +63,7 @@ pygame.display.set_caption(TITLE)
 screen = pygame.display.set_mode(WINDOW_SIZE)
 clock = pygame.time.Clock()
 
-# Init temp values = 0
+# Init temp values
 player_coords = (0, 0)
 score = 0
 
@@ -118,7 +121,8 @@ for btn_text in start_menu_buttons_intro:
 sound_btn_size = (40, 40)
 sound_slider_size = (130, 30)
 sound_btn = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((indent_left, indent_down - sound_btn_size[1]), sound_btn_size),
+    relative_rect=pygame.Rect((
+        indent_left, indent_down - sound_btn_size[1]), sound_btn_size),
     text='', manager=main_menu_manager)
 sound_value_slider = pygame_gui.elements.ui_horizontal_slider.UIHorizontalSlider(
     relative_rect=pygame.Rect((
@@ -139,6 +143,45 @@ music_value_slider = pygame_gui.elements.ui_horizontal_slider.UIHorizontalSlider
     value_range=(0, 100),
     start_value=100,
     manager=main_menu_manager)
+
+
+def load_image(name, colorkey=None):
+    fullname = os.path.join('data/sprites', name)
+
+    if not os.path.isfile(fullname):
+        print(f"Файл с изображением '{fullname}' не найден")
+        sys.exit()
+
+    if colorkey == 0:
+        image = pygame.image.load(fullname)
+    else:
+        image = pygame.image.load(fullname).convert()
+
+    if colorkey is not None:
+        if colorkey == -1:
+            colorkey = image.get_at((0, 0))
+        image.set_colorkey(colorkey)
+    else:
+        image = image.convert_alpha()
+    return image
+
+
+# Loading game menu graphics:
+music_on_img = pygame.transform.scale(load_image("music_on.png"), sound_btn_size)
+sound_on_img = pygame.transform.scale(load_image("sound_on.png"), sound_btn_size)
+music_off_img = pygame.transform.scale(load_image("music_off.png"), sound_btn_size)
+sound_off_img = pygame.transform.scale(load_image("sound_off.png"), sound_btn_size)
+
+# Loading game menu sound:
+back_to_menu = pygame.mixer.Sound(os.path.join(
+    SOUND_DIR, 'menu', 'back_to_menu.mp3'))
+choice_of_the_options = pygame.mixer.Sound(os.path.join(
+    SOUND_DIR, 'menu', 'choice_of_the_options.mp3'))
+selecting_of_the_options = pygame.mixer.Sound(os.path.join(
+    SOUND_DIR, 'menu', 'selecting_of_the_options.mp3'))
+
+icon = load_image('tank_icon.ico', colorkey=0)
+pygame.display.set_icon(icon)
 
 
 def play_background_music(name, loops=-1):
@@ -164,34 +207,6 @@ def get_player_coords():
 
 def set_player_coords(coords):
     save_user_info(coords)
-
-
-def load_image(name, colorkey=None):
-    fullname = os.path.join('data/sprites', name)
-
-    if not os.path.isfile(fullname):
-        print(f"Файл с изображением '{fullname}' не найден")
-        sys.exit()
-
-    if colorkey == 0:
-        image = pygame.image.load(fullname)
-    else:
-        image = pygame.image.load(fullname).convert()
-
-    if colorkey is not None:
-        if colorkey == -1:
-            colorkey = image.get_at((0, 0))
-        image.set_colorkey(colorkey)
-    else:
-        image = image.convert_alpha()
-    return image
-
-
-# Loading game graphics
-music_on_img = pygame.transform.scale(load_image("music_on.png"), sound_btn_size)
-sound_on_img = pygame.transform.scale(load_image("sound_on.png"), sound_btn_size)
-music_off_img = pygame.transform.scale(load_image("music_off.png"), sound_btn_size)
-sound_off_img = pygame.transform.scale(load_image("sound_off.png"), sound_btn_size)
 
 
 def terminate():
@@ -266,64 +281,73 @@ class Map:
 
         self.camera = Camera(self.width, self.height)
 
-        # Инициализация разрушаемых/неразрушаемых/свободных и других блоков через TiledMap
+        # Init tile lists
         self.free_tiles = []
         self.break_tiles = []
         self.unbreak_tiles = []
 
-        check_properties = self.tiled_map.get_tile_properties
-
         for y in range(self.height):
             for x in range(self.width):
                 type_of_tile = self.get_type_of_tile(x, y)
-                id_of_tyle = self.tiled_map.get_tile_gid(x, y, 0)
-                if 'free' in type_of_tile and id_of_tyle not in self.free_tiles:
-                    self.free_tiles.append(id_of_tyle)
-                elif type_of_tile == 'break' and id_of_tyle not in self.break_tiles:
-                    self.break_tiles.append(id_of_tyle)
-                elif 'unbreak' in type_of_tile and id_of_tyle not in self.unbreak_tiles:
-                    self.unbreak_tiles.append(id_of_tyle)
+                id_of_tile = self.tiled_map.get_tile_gid(x, y, 0)
+                if 'free' in type_of_tile and id_of_tile not in self.free_tiles:
+                    self.free_tiles.append(id_of_tile)
+                elif type_of_tile == 'break' and id_of_tile not in self.break_tiles:
+                    self.break_tiles.append(id_of_tile)
+                elif 'unbreak' in type_of_tile and id_of_tile not in self.unbreak_tiles:
+                    self.unbreak_tiles.append(id_of_tile)
         self.shadow = []
         self.lava = []
 
     def render(self, screen):
         screen.fill('#000000')
+        camera_coord = \
+            abs(self.camera.rect.x // TILE_SIZE), \
+            abs(self.camera.rect.y // TILE_SIZE)
         for layer in self.tiled_map.visible_layers:
             if isinstance(layer, pytmx.TiledTileLayer):
                 for x, y, gid in layer:
-                    # Оптимизация рендера, чтобы тот не отрисовывал не входящие в камеру объекты
-                    if x in range(abs(self.camera.rect.x // TILE_SIZE), self.camera.rect.width)\
-                            and y in range(abs(self.camera.rect.y // TILE_SIZE), self.camera.rect.height):
-                        gid = self.map[y][x]
-                        tank_stand_on = False
-                        if not isinstance(gid, int):
-                            gid = self.get_free_block(x, y)
-                            tank_stand_on = True
 
-                        tile = self.tiled_map.get_tile_image_by_gid(gid)
-                        if tile:
-                            tile_rect = pygame.Rect(0, 0, x * self.tiled_map.tilewidth,
-                                                    y * self.tiled_map.tileheight)
-                            self.camera.apply(tile_rect)
-                            screen.blit(tile, (tile_rect.width, tile_rect.height))
+                    # Not draw objects that are not included in the camera
+                    if not(x in range(camera_coord[0], self.camera.rect.width) and
+                           y in range(camera_coord[1], self.camera.rect.height)):
+                        continue
 
-                            if (x, y) in self.lava:
-                                screen.blit(lava, (tile_rect.width, tile_rect.height))
+                    gid = self.map[y][x]
+                    tank_stand_on = False
+                    if not isinstance(gid, int):
+                        gid = self.get_free_block(x, y)
+                        tank_stand_on = True
 
-                            if tank_stand_on:
-                                screen.blit(self.map[y][x].image, (tile_rect.width, tile_rect.height))
-                                if getattr(self.map[y][x], 'tank_turret', False):
-                                    screen.blit(self.map[y][x].tank_turret.image, (tile_rect.width, tile_rect.height))
-                                if self.map[y][x].respawn:
-                                    if self.map[y][x].respawn_time <= 90:
-                                        self.map[y][x] = self.get_free_block(x, y)
+                    tile = self.tiled_map.get_tile_image_by_gid(gid)
+                    if tile:
+                        tile_rect = pygame.Rect(
+                            0, 0, x * self.tiled_map.tilewidth,
+                            y * self.tiled_map.tileheight)
+                        self.camera.apply(tile_rect)
+                        screen.blit(tile, (tile_rect.width, tile_rect.height))
 
-                            if (x, y) in self.shadow:
-                                shadow = pygame.Surface((self.tiled_map.tilewidth,
-                                                         self.tiled_map.tileheight))
-                                shadow.fill(pygame.Color(0, 0, 0))
-                                shadow.set_alpha(99)
-                                screen.blit(shadow, (tile_rect.width, tile_rect.height))
+                        if (x, y) in self.lava:
+                            screen.blit(lava, (tile_rect.width, tile_rect.height))
+
+                        if tank_stand_on:
+                            screen.blit(self.map[y][x].image,
+                                        (tile_rect.width, tile_rect.height))
+                            if getattr(self.map[y][x], 'tank_turret', False):
+                                screen.blit(self.map[y][x].tank_turret.image,
+                                            (tile_rect.width, tile_rect.height))
+                            if self.map[y][x].respawn:
+                                if self.map[y][x].respawn_time <= 90:
+                                    self.map[y][x] = self.get_free_block(x, y)
+
+                        if (x, y) in self.shadow:
+                            shadow = pygame.Surface(
+                                (self.tiled_map.tilewidth,
+                                 self.tiled_map.tileheight))
+                            shadow.fill(pygame.Color(0, 0, 0))
+                            shadow.set_alpha(99)
+                            screen.blit(shadow, (tile_rect.width,
+                                                 tile_rect.height))
 
     def get_tile_id(self, position):
         return self.map[position[1]][position[0]]
@@ -341,7 +365,8 @@ class Map:
         return id_of_free_block
 
     def is_free(self, position):
-        return self.get_tile_id(position) in self.free_tiles and position not in self.shadow
+        return self.get_tile_id(position) in self.free_tiles and \
+               position not in self.shadow
 
     def find_player(self):
         for y in range(self.height):
@@ -349,7 +374,7 @@ class Map:
                 if self.map[y][x].__repr__() == 'Player':
                     return x, y
 
-    def give_player_list_and_tanks_list_and_destinations(self, sprite_group):
+    def give_game_objects_lists(self, sprite_group):
         destinations = dict()
         player_list = []
         tank_list = []
@@ -359,70 +384,85 @@ class Map:
                     special_group = self.shadow
                 else:
                     special_group = self.lava
-                x, y, w, h = int(tile_object.x // TILE_SIZE), int(tile_object.y // TILE_SIZE),\
-                             int(tile_object.width // TILE_SIZE), int(tile_object.height // TILE_SIZE)
+                x = int(tile_object.x // TILE_SIZE)
+                y = int(tile_object.y // TILE_SIZE)
+                w = int(tile_object.width // TILE_SIZE)
+                h = int(tile_object.height // TILE_SIZE)
                 for y_step in range(y, y + h):
                     for x_step in range(x, x + w):
                         special_group.append((x_step, y_step))
-
             else:
-                rotate_turret, rotate_hull = tile_object.properties['rotate_turret'],\
-                                             tile_object.properties['rotate_hull']
+                rotate_turret = tile_object.properties['rotate_turret']
+                rotate_hull = tile_object.properties['rotate_hull']
                 destination = tile_object.properties['destination']
                 respawn = tile_object.properties.get('respawn', False)
                 x, y = int(tile_object.x // TILE_SIZE), int(tile_object.y // TILE_SIZE)
                 if 'Player' in tile_object.name:
-                    player_list.append(Player((x, y), rotate_turret=rotate_turret,
-                                          rotate_hull=rotate_hull, group=sprite_group, respawn=respawn))
+                    player_list.append(
+                        Player((x, y), rotate_turret=rotate_turret,
+                               rotate_hull=rotate_hull, group=sprite_group,
+                               respawn=respawn))
                 elif 'Tank' in tile_object.name:
-                    tank_list.append(Tank((x, y), rotate_turret=rotate_turret,
-                                          rotate_hull=rotate_hull, group=sprite_group, respawn=respawn))
+                    tank_list.append(
+                        Tank((x, y), rotate_turret=rotate_turret,
+                             rotate_hull=rotate_hull, group=sprite_group,
+                             respawn=respawn))
                 elif 'Beast' in tile_object.name:
-                    tank_list.append(Beast((x, y), rotate_turret=rotate_turret,
-                                           rotate_hull=rotate_hull, group=sprite_group, respawn=respawn))
+                    tank_list.append(
+                        Beast((x, y), rotate_turret=rotate_turret,
+                              rotate_hull=rotate_hull, group=sprite_group,
+                              respawn=respawn))
                 elif 'Heavy' in tile_object.name:
-                    tank_list.append(Heavy((x, y), rotate_turret=rotate_turret,
-                                           rotate_hull=rotate_hull, group=sprite_group, respawn=respawn))
+                    tank_list.append(
+                        Heavy((x, y), rotate_turret=rotate_turret,
+                              rotate_hull=rotate_hull, group=sprite_group,
+                              respawn=respawn))
                 elif 'Allied' in tile_object.name:
-                    tank_list.append(Allied((x, y), rotate_turret=rotate_turret,
-                                           rotate_hull=rotate_hull, group=sprite_group, respawn=respawn))
+                    tank_list.append(
+                        Allied((x, y), rotate_turret=rotate_turret,
+                               rotate_hull=rotate_hull, group=sprite_group,
+                               respawn=respawn))
                 elif 'Convoy' in tile_object.name:
-                    tank_list.append(Convoy((x, y), rotate_turret=rotate_turret,
-                                            rotate_hull=rotate_hull, group=sprite_group, respawn=respawn))
+                    tank_list.append(
+                        Convoy((x, y), rotate_turret=rotate_turret,
+                               rotate_hull=rotate_hull, group=sprite_group,
+                               respawn=respawn))
                 if destination == 'self':
                     destinations[tank_list[-1]] = None
                 elif destination == 'player':
                     destinations[tank_list[-1]] = get_player_coords
                 elif 'detect' in destination:
                     def detect_func(range_x, range_y):
-                        return get_player_coords if (
-                                    get_player_coords()[0] in range_x and get_player_coords()[1] in range_y) else None
+                        if get_player_coords()[0] in range_x and \
+                                get_player_coords()[1] in range_y:
+                            return get_player_coords
+                        return None
 
                     ranges = get_ranges_from_detect(destination)
                     destinations[tank_list[-1]] = (detect_func, ranges)
                 elif 'pos' in destination:
-                    destinations[tank_list[-1]] = eval(destination[len('pos '):])
+                    destinations[tank_list[-1]] = \
+                        eval(destination[len('pos '):])
 
         return player_list, tank_list, destinations
 
 
 class Game:
-    def __init__(self, map, bullets, clock, sprites_group=list()):
+    def __init__(self, map, bullets, sprites_group=None):
         self.map = map
-        self.clock = clock
         self.camera = self.map.camera
 
-        # Инициализация миссий, "причин для поражения", событий, катсцен
+        # Init objects groups
+        self.sprites_group = [] if sprites_group is None else sprites_group
+        self.controlled_tanks, self.uncontrolled_tanks, self.destinations = \
+            (self.map.give_game_objects_lists(sprites_group[0]))
+
         self.defeat_reasons = []
         self.missions = []
         self.events = []
         self.cutscenes = []
         self.is_active_cutscene = False
         self.final_lvl = True
-
-        # Группы танков
-        self.sprites_group = sprites_group
-        self.controlled_tanks, self.uncontrolled_tanks, self.destinations = (self.map.give_player_list_and_tanks_list_and_destinations(sprites_group[0]))
 
         self.bullets = bullets
 
@@ -440,8 +480,10 @@ class Game:
     def update_bullets(self):
         for bullet in self.bullets:
             bullet.next_move()
-            bullet_x, bullet_y = [round(i) for i in bullet.get_position()]
-            if bullet_x not in range(0, self.map.width) or bullet_y not in range(0, self.map.height):
+            bullet_x, bullet_y = \
+                [round(i) for i in bullet.get_position()]
+            if bullet_x not in range(0, self.map.width) or \
+                    bullet_y not in range(0, self.map.height):
                 del self.bullets[self.bullets.index(bullet)]
                 continue
             if not self.map.is_free((bullet_x, bullet_y)):
@@ -458,7 +500,8 @@ class Game:
             tank.health -= 1
             if tank.health <= 0:
                 if tank.is_crashed:
-                    self.map.map[bullet_y][bullet_x] = self.map.get_free_block(bullet_x, bullet_y)
+                    self.map.map[bullet_y][bullet_x] = \
+                        self.map.get_free_block(bullet_x, bullet_y)
                     tank.clear_the_tank()
                 else:
                     tank.destroy_the_tank(self.uncontrolled_tanks)
@@ -467,7 +510,8 @@ class Game:
             self.draw_flash(bullet_x, bullet_y)
             return 'unbreak'
         elif self.map.map[bullet_y][bullet_x] in self.map.break_tiles:
-            self.map.map[bullet_y][bullet_x] = self.map.get_free_block(bullet_x, bullet_y)
+            self.map.map[bullet_y][bullet_x] = \
+                self.map.get_free_block(bullet_x, bullet_y)
             self.draw_smoke(bullet_x, bullet_y)
         elif self.map.get_type_of_tile(bullet_x, bullet_y) == 'tnt':
             self.make_reflect_explode(bullet_x, bullet_y)
@@ -524,13 +568,15 @@ class Game:
                 next_x, next_y = cur_x + dx, cur_y + dy
                 if self.map.is_free((next_x, next_y)):
                     if tank.move_forward():
-                        self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
+                        self.map.map[cur_y][cur_x] = \
+                            self.map.get_free_block(cur_x, cur_y)
                         self.map.map[next_y][next_x] = tank
             elif pygame.key.get_pressed()[tank.control_keys[BACK]]:
                 next_x, next_y = cur_x - dx, cur_y - dy
                 if self.map.is_free((next_x, next_y)):
                     if tank.move_back():
-                        self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
+                        self.map.map[cur_y][cur_x] = \
+                            self.map.get_free_block(cur_x, cur_y)
                         self.map.map[next_y][next_x] = tank
             if pygame.key.get_pressed()[tank.control_keys[TURN_RIGHT]]:
                 tank.turn_right()
@@ -558,10 +604,10 @@ class Game:
                 continue
 
             destination = self.destinations[tank]
-            # Для динамических целей, которые требуют обновления данных о себе
+
             if callable(destination):
                 destination = destination()
-            # Для "скриптованных" целей. Срабатывают, когда та переходит черту
+
             elif isinstance(destination, tuple):
                 if callable(destination[0]):
                     destination = destination[0](*destination[1])
@@ -569,11 +615,10 @@ class Game:
                         self.destinations[tank] = destination
                         if callable(destination):
                             destination = destination()
-            # нахождение цели
+
             if destination != None:
                 path = self.find_path(tank.get_position(), destination)
 
-            # Поскольку бот соображает слишком быстро, задержка через рандом должна снизить его скорость
             if random() > 1 - tank.accuracy:
                 self.calculate_uncontrolled_tank_turret(tank)
 
@@ -602,12 +647,16 @@ class Game:
         cur_x, cur_y = tank.get_position()
         rotate_turret = tank.get_rotate()[0]
 
-        down_y_axis = [self.map.map[y][cur_x] for y in range(cur_y, len(self.map.map))]
-        up_y_axis = [self.map.map[y][cur_x] for y in range(cur_y, 0, -1)]
-        left_x_axis = [self.map.map[cur_y][x] for x in range(cur_x, 0, -1)]
-        right_x_axis = [self.map.map[cur_y][x] for x in range(cur_x, len(self.map.map[0]))]
+        down_y_axis = [self.map.map[y][cur_x]
+                       for y in range(cur_y, len(self.map.map))]
+        up_y_axis = [self.map.map[y][cur_x]
+                     for y in range(cur_y, 0, -1)]
+        left_x_axis = [self.map.map[cur_y][x]
+                       for x in range(cur_x, 0, -1)]
+        right_x_axis = [self.map.map[cur_y][x]
+                        for x in range(cur_x, len(self.map.map[0]))]
 
-        for cell in left_x_axis:  # 90
+        for cell in left_x_axis:
             if break_check(cell):
                 break
             if from_other_team(cell):
@@ -615,12 +664,10 @@ class Game:
                     tank.shoot(self.bullets)
                 elif rotate_turret == 0:
                     tank.turn_turret_left()
-                elif rotate_turret == 90:
-                    tank.turn_turret_right()
                 elif rotate_turret == 180:
                     tank.turn_turret_right()
                 return None
-        for cell in right_x_axis:  # 270
+        for cell in right_x_axis:
             if break_check(cell):
                 break
             if from_other_team(cell):
@@ -628,12 +675,10 @@ class Game:
                     tank.shoot(self.bullets)
                 elif rotate_turret == 0:
                     tank.turn_turret_right()
-                elif rotate_turret == 270:
-                    tank.turn_turret_right()
                 elif rotate_turret == 180:
                     tank.turn_turret_left()
                 return None
-        for cell in up_y_axis:  # 0
+        for cell in up_y_axis:
             if break_check(cell):
                 break
             if from_other_team(cell):
@@ -646,7 +691,7 @@ class Game:
                 elif rotate_turret == 180:
                     tank.turn_turret_right()
                 return None
-        for cell in down_y_axis:  # 180
+        for cell in down_y_axis:
             if break_check(cell):
                 break
             if from_other_team(cell):
@@ -670,44 +715,51 @@ class Game:
         cur_x, cur_y = tank.get_position()
         rotate_hull = tank.get_rotate()[1]
         next_step = path[2]
-        direction_move = self.calculate_direction(tank.get_position(), next_step)
+        direction_move = self.calculate_direction(
+            tank.get_position(), next_step)
         next_x = cur_x + direction_move[0]
         next_y = cur_y + direction_move[1]
         if direction_move == (0, 1):
             if rotate_hull == 180:
                 if tank.move_forward():
-                    self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
+                    self.map.map[cur_y][cur_x] = \
+                        self.map.get_free_block(cur_x, cur_y)
                     self.map.map[next_y][next_x] = tank
             else:
                 turn_hull_optimal(180)
         if direction_move == (1, 0):
             if rotate_hull == 270:
                 if tank.move_forward():
-                    self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
+                    self.map.map[cur_y][cur_x] = \
+                        self.map.get_free_block(cur_x, cur_y)
                     self.map.map[next_y][next_x] = tank
             else:
                 turn_hull_optimal(270)
         if direction_move == (0, -1):
             if rotate_hull == 0:
                 if tank.move_forward():
-                    self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
+                    self.map.map[cur_y][cur_x] = \
+                        self.map.get_free_block(cur_x, cur_y)
                     self.map.map[next_y][next_x] = tank
             else:
                 turn_hull_optimal(0)
         if direction_move == (-1, 0):
             if rotate_hull == 90:
                 if tank.move_forward():
-                    self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
+                    self.map.map[cur_y][cur_x] = \
+                        self.map.get_free_block(cur_x, cur_y)
                     self.map.map[next_y][next_x] = tank
             else:
                 turn_hull_optimal(90)
 
     def calculate_direction(self, this_step, next_step):
-        return tuple(next_step[i] - this_step[i] for i in range(len(this_step)))
+        return tuple(next_step[i] - this_step[i]
+                     for i in range(len(this_step)))
 
     def find_path(self, start, destination):
         def calculate_distance_for_destination(cell):
-            a, b = abs(cell[0] - destination[0]) + 1, abs(cell[1] - destination[1])
+            a, b = abs(cell[0] - destination[0]) + 1, \
+                   abs(cell[1] - destination[1])
             c = pow((a ** 2 + b ** 2), 0.5)
 
             return c
@@ -721,42 +773,38 @@ class Game:
                 else:
                     x_list = (cell[0], cell[0])
                 for x in x_list:
-                    if all([(0 <= y < len(self.map.map)), (0 <= x < len(self.map.map[0]))]):
+                    if all([(0 <= y < len(self.map.map)),
+                            (0 <= x < len(self.map.map[0]))]):
                         if pathfinder.__repr__() == 'Convoy':
                             if self.map.map[y][x] == self.map.free_tiles[0]\
                                     or (x, y) == destination:
                                 neighbours.append((x, y))
-                        elif self.map.is_free((x, y)) or (x, y) == destination:
+                        elif self.map.is_free((x, y)) or \
+                                (x, y) == destination:
                             neighbours.append((x, y))
             return neighbours
 
         if start == destination:
             return [start, start, start, start]
-        # создаем граф, используя соседние клетки
-        graph = {}
-        count = 0
 
         queue = Queue()
         queue.put(start)
         came_from = {}
         came_from[start] = None
 
-        # для каждой клетки в очереди записывается клетка, из которой они пришли
         while not queue.empty():
             current_cell = queue.get()
             cells = get_neighbours(current_cell)
             for cell in cells:
-                # если графа нет в "откуда пришел", то добавляем ему точку, откуда он пришел, и кидаем в очередь
                 if cell not in came_from:
                     queue.put(cell)
                     came_from[cell] = current_cell
-        # идем обратно от конца до старта
         current_cell = destination
         path = [destination]
         while current_cell != start:
-            # если у точки дислокации нет точки, откуда она пришла. Такое бывает, если старт окружают заборы
             if current_cell not in came_from:
-                distances = [(cell, calculate_distance_for_destination(cell)) for cell in came_from.keys()]
+                distances = [(cell, calculate_distance_for_destination(cell))
+                             for cell in came_from.keys()]
                 current_cell = min(distances, key=lambda x: x[1])[0]
                 path = [current_cell]
 
@@ -773,18 +821,21 @@ class Game:
             if not return_status:
                 if self.timer == 0:
                     play_background_music('lose', 0)
-                show_game_message(screen, 'YOU LOSE!', 'press any button to continue')
+                show_game_message(screen, 'YOU LOSE!',
+                                  'press any button to continue')
                 self.timer += 1
             return 'lose'
         results = [mission() for mission in self.missions]
         if any(results):
             if not return_status:
-                _, begin_uncontrolled, _ = self.map.give_player_list_and_tanks_list_and_destinations(self.sprites_group[0])
+                _, begin_uncontrolled, _ = \
+                    self.map.give_game_objects_lists(self.sprites_group[0])
                 temp_score = calculate_highscore(self.uncontrolled_tanks, begin_uncontrolled)
                 if self.timer == 0:
                     play_background_music('win')
-                show_game_message(screen, 'YOU WON!', f'press any button to continue', '', '', '', '', '',
-                                  f'Очки за уровень: {temp_score}')
+                show_game_message(screen, 'YOU WON!',
+                                  f'press any button to continue',\
+                                  f'SCORE: {temp_score}')
                 self.timer += 1
             return 'win'
 
@@ -796,12 +847,17 @@ class Game:
             if '10' in name_file:
                 self.final_lvl = True
 
+            def trigger_on_detect(coords, ranges):
+                if coords[0] in ranges[0] and coords[1] in ranges[1]:
+                    return True
+                return False
+
             for line in file:
                 if 'detect' in line:
                     ranges = get_ranges_from_detect(line)
-                    trigger_on_detect = lambda coords, ranges: True if coords[0] in ranges[0]\
-                                                                   and coords[1] in ranges[1] else False
-                    self.cutscenes.append({'trigger': trigger_on_detect, 'args': ranges, 'content': []})
+                    self.cutscenes.append(
+                        {'trigger': trigger_on_detect, 
+                         'args': ranges, 'content': []})
                 elif line != '\n':
                     self.cutscenes[-1]['content'].append(tuple(eval(line)))
 
@@ -810,7 +866,8 @@ class Game:
             return self.is_active_cutscene
 
         for scene in self.cutscenes:
-            trigger, args = scene['trigger'], (get_player_coords(), scene['args'])
+            trigger, args = scene['trigger'], \
+                            (get_player_coords(), scene['args'])
             if trigger(*args):
                 if self.is_active_cutscene:
                     if self.timer == 0:
@@ -825,7 +882,8 @@ class Game:
                             self.cutscenes.remove(scene)
                             self.timer = 0
                             return True
-                    if isinstance(replica[0], int) and isinstance(replica[1], int):
+                    if isinstance(replica[0], int) and \
+                            isinstance(replica[1], int):
                         self.move_camera(replica)
                         replica = None
                     elif len(replica[1]) > 45:
@@ -860,7 +918,6 @@ class Game:
 
 
 class Camera:
-    # зададим начальный сдвиг камеры
     def __init__(self, width, height, shift_x=7, shift_y=7):
         self.width = width
         self.height = height
@@ -869,7 +926,6 @@ class Camera:
         self.shift_y = shift_y
         self.map_x, self.map_y = 0, 0
 
-    # сдвинуть объект obj на смещение камеры
     def apply(self, obj):
         if isinstance(obj, Bullet):
             obj.rect.x += self.rect.left
@@ -880,7 +936,6 @@ class Camera:
             obj.width += self.rect.left
             obj.height += self.rect.top
 
-    # позиционировать камеру на объекте target
     def update(self, target, immediately=False):
         if isinstance(target, tuple):
             target_x, target_y = target
@@ -933,24 +988,30 @@ class LevelLoader:
             text = font.render(f'FPS: {fps}', True, pygame.Color(color))
             screen.blit(text, (WINDOW_WIDTH - text.get_width(), 0))
 
-        self.stand_on_control_point = lambda: game.map.get_type_of_tile(get_player_coords()[0],
-                                                           get_player_coords()[1]) == 'free_control_point'
-
-        self.all_bots_are_dead = lambda: len(game.uncontrolled_tanks) == 0
-        self.player_are_dead = lambda: game.controlled_tanks[0].is_crashed
-        self.convoy_turn_around = lambda: [tank.shoot([]) for tank in game.uncontrolled_tanks if tank.__repr__() == 'Convoy']
-        self.all_convoy_is_dead = lambda: [i.__repr__() for i in game.uncontrolled_tanks].count('Convoy') < 2
+        self.stand_on_control_point = \
+            lambda: game.map.get_type_of_tile(
+                get_player_coords()[0],
+                get_player_coords()[1]) == 'free_control_point'
+        self.all_bots_are_dead = \
+            lambda: len(game.uncontrolled_tanks) == 0
+        self.player_are_dead = \
+            lambda: game.controlled_tanks[0].is_crashed
+        self.convoy_turn_around = \
+            lambda: [tank.shoot([]) for tank in game.uncontrolled_tanks
+                     if tank.__repr__() == 'Convoy']
+        self.all_convoy_is_dead = \
+            lambda: [i.__repr__() for i in
+                     game.uncontrolled_tanks].count('Convoy') < 2
         game.events.append(debug_show_fps)
 
     def init_lvl1_scene(self):
-        # Формирование кадра(команды рисования на холсте):
         main_map = Map("1_lvl.tmx")
         play_background_music('1_lvl')
 
-        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+        all_sprites = pygame.sprite.Group()  
 
         bullets = []
-        game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        game = Game(main_map, bullets, sprites_group=[all_sprites])
         self.init_reasons_and_missions(game)
         game.parse_cutscenes_from_file('1_lvl')
 
@@ -959,15 +1020,14 @@ class LevelLoader:
         return game
 
     def init_lvl2_scene(self):
-        # Формирование кадра(команды рисования на холсте):
         main_map = Map("2_lvl.tmx")
         play_background_music('2_lvl')
 
-        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+        all_sprites = pygame.sprite.Group()
 
         bullets = []
 
-        game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        game = Game(main_map, bullets, sprites_group=[all_sprites])
         game.parse_cutscenes_from_file('2_lvl')
 
         self.init_reasons_and_missions(game)
@@ -977,17 +1037,18 @@ class LevelLoader:
 
     def init_lvl3_scene(self):
         def open_door():
-            if all(cell in game.map.free_tiles for cell in sum([game.map.map[23][1:3], game.map.map[24][1:3]], [])):
+            if all(cell in game.map.free_tiles for cell in
+                   sum([game.map.map[23][1:3], game.map.map[24][1:3]], [])):
                 game.map.map[6][19] = game.map.free_tiles[0]
 
-        # Формирование кадра(команды рисования на холсте):
+        
         main_map = Map("3_lvl.tmx")
         play_background_music('3_lvl')
-        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+        all_sprites = pygame.sprite.Group()  
 
         bullets = []
 
-        game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        game = Game(main_map, bullets, sprites_group=[all_sprites])
         self.init_reasons_and_missions(game)
         game.events.extend([open_door, self.convoy_turn_around])
         game.parse_cutscenes_from_file('3_lvl')
@@ -997,32 +1058,33 @@ class LevelLoader:
         return game
 
     def init_lvl4_scene(self):
-        # Формирование кадра(команды рисования на холсте):
         main_map = Map("4_lvl.tmx")
         play_background_music('4_lvl')
-        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+        all_sprites = pygame.sprite.Group()  
 
         bullets = []
 
-        game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        game = Game(main_map, bullets, sprites_group=[all_sprites])
         game.parse_cutscenes_from_file('4_lvl')
         self.init_reasons_and_missions(game)
         game.events.append(self.convoy_turn_around)
 
-        convoy_here = lambda: [i.__repr__() for i in sum([game.map.map[60][22:26], game.map.map[61][22:26]], [])].count('Convoy') == 2
+        convoy_here = lambda: [i.__repr__() for i in sum(
+            [game.map.map[60][22:26],
+             game.map.map[61][22:26]], [])].count('Convoy') == 2
         game.missions = [convoy_here]
         game.defeat_reasons = [self.player_are_dead, self.all_convoy_is_dead]
         return game
 
     def init_lvl5_scene(self):
-        # Формирование кадра(команды рисования на холсте):
+        
         main_map = Map("5_lvl.tmx")
         play_background_music('5_lvl')
-        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+        all_sprites = pygame.sprite.Group()  
 
         bullets = []
 
-        game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        game = Game(main_map, bullets, sprites_group=[all_sprites])
         self.init_reasons_and_missions(game)
         game.events.append(self.convoy_turn_around)
         game.parse_cutscenes_from_file('5_lvl')
@@ -1033,16 +1095,18 @@ class LevelLoader:
 
     def init_lvl6_scene(self):
         def open_door():
-            if all(cell in game.map.free_tiles for cell in sum([game.map.map[9][19:21], game.map.map[10][19:21]], [])):
+            if all(cell in game.map.free_tiles for cell in sum(
+                    [game.map.map[9][19:21],
+                     game.map.map[10][19:21]], [])):
                 game.map.map[21][27] = game.map.free_tiles[0]
-        # Формирование кадра(команды рисования на холсте):
+        
         main_map = Map("6_lvl.tmx")
         play_background_music('6_lvl')
-        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+        all_sprites = pygame.sprite.Group()  
 
         bullets = []
 
-        game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        game = Game(main_map, bullets, sprites_group=[all_sprites])
         game.events.append(open_door)
         game.parse_cutscenes_from_file('6_lvl')
 
@@ -1052,14 +1116,14 @@ class LevelLoader:
         return game
 
     def init_lvl7_scene(self):
-        # Формирование кадра(команды рисования на холсте):
+        
         main_map = Map("7_lvl.tmx")
         play_background_music('7_lvl')
-        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+        all_sprites = pygame.sprite.Group()  
 
         bullets = []
 
-        game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        game = Game(main_map, bullets, sprites_group=[all_sprites])
         game.parse_cutscenes_from_file('7_lvl')
 
         self.init_reasons_and_missions(game)
@@ -1069,8 +1133,9 @@ class LevelLoader:
 
     def init_lvl8_scene(self):
         def open_door():
-            if all(cell in game.map.free_tiles for cell in sum([game.map.map[21][2:4], game.map.map[22][2:4],
-                                                                game.map.map[21][6:8], game.map.map[22][6:8]], [])):
+            if all(cell in game.map.free_tiles for cell in sum(
+                    [game.map.map[21][2:4], game.map.map[22][2:4],
+                     game.map.map[21][6:8], game.map.map[22][6:8]], [])):
                 game.map.map[23][17] = game.map.free_tiles[0]
                 game.map.map[33][17] = game.map.free_tiles[0]
                 game.map.shadow.append((17, 23))
@@ -1078,14 +1143,14 @@ class LevelLoader:
                 if game.cutscenes:
                     game.cutscenes[0]['trigger'] = lambda arg1, arg2: True
 
-        # Формирование кадра(команды рисования на холсте):
+        
         main_map = Map("8_lvl.tmx")
         play_background_music('8_lvl')
-        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+        all_sprites = pygame.sprite.Group()  
 
         bullets = []
 
-        game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        game = Game(main_map, bullets, sprites_group=[all_sprites])
         game.parse_cutscenes_from_file('8_lvl')
         self.init_reasons_and_missions(game)
 
@@ -1102,17 +1167,18 @@ class LevelLoader:
                     if tank.get_position() in game.map.lava:
                         tank.destroy_the_tank(group)
 
-        # Формирование кадра(команды рисования на холсте):
+        
         main_map = Map("9_lvl.tmx")
         play_background_music('9_lvl')
-        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+        all_sprites = pygame.sprite.Group()  
 
         bullets = []
 
-        game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        game = Game(main_map, bullets, sprites_group=[all_sprites])
         game.camera.shift_y = 10
 
-        lava_spread = lambda: game.map.lava.extend([(x, game.map.lava[-1][1] + 1) for x in range(1, 14)])\
+        lava_spread = lambda: game.map.lava.extend(
+            [(x, game.map.lava[-1][1] + 1) for x in range(1, 14)])\
             if int(str(pygame.time.get_ticks())[-3:]) < 100 else None
         game.events.extend([lava_spread, lava_kill_tanks])
 
@@ -1128,7 +1194,8 @@ class LevelLoader:
         time_for_shoot = 30
 
         def lava_kill_tanks():
-            for group in [game.uncontrolled_tanks, game.controlled_tanks]:
+            for group in [game.uncontrolled_tanks,
+                          game.controlled_tanks]:
                 for tank in group:
                     if tank.get_position() in game.map.lava:
                         tank.destroy_the_tank(group)
@@ -1139,10 +1206,12 @@ class LevelLoader:
             time_for_explode -= 1
             if time_for_explode <= 0:
                 if time_for_explode == 0:
-                    play_sound(None, os.path.join(SOUND_DIR, 'other', 'marker.mp3'))
+                    play_sound(None, os.path.join(
+                        SOUND_DIR, 'other', 'marker.mp3'))
                 if len(player_moves) > 4 * 4:
                     time_for_shoot -= 1
-                    rect = pygame.Rect(0, 0, player_moves[0][0] * TILE_SIZE, player_moves[0][1] * TILE_SIZE)
+                    rect = pygame.Rect(0, 0, player_moves[0][0] * TILE_SIZE,
+                                       player_moves[0][1] * TILE_SIZE)
                     game.camera.apply(rect)
                     screen.blit(target_confirmed, (rect.width, rect.height))
                     if time_for_shoot == 0:
@@ -1152,51 +1221,61 @@ class LevelLoader:
                         screen.blit(target_confirmed, (rect.width, rect.height))
             else:
                 if time_for_explode == 141:
-                    play_sound(None, os.path.join(SOUND_DIR, 'other', 'boss_load.mp3'))
+                    play_sound(None, os.path.join(
+                        SOUND_DIR, 'other', 'boss_load.mp3'))
                 if time_for_explode == 45:
-                    play_sound(None, os.path.join(SOUND_DIR, 'other', 'boss_gun_raise.mp3'))
-                player_moves.append((min(42, get_player_coords()[0]), get_player_coords()[1]))
+                    play_sound(None, os.path.join(
+                        SOUND_DIR, 'other', 'boss_gun_raise.mp3'))
+                player_moves.append((min(
+                    42, get_player_coords()[0]), get_player_coords()[1]))
                 if len(player_moves) > 5 * 4:
                     player_moves.pop(0)
 
-                rect = pygame.Rect(0, 0, player_moves[0][0] * TILE_SIZE, player_moves[0][1] * TILE_SIZE)
+                rect = pygame.Rect(0, 0, player_moves[0][0] * TILE_SIZE,
+                                   player_moves[0][1] * TILE_SIZE)
                 game.camera.apply(rect)
                 screen.blit(target_search, (rect.width, rect.height))
 
         def open_doors():
             lock_cell = game.map.unbreak_tiles[1]
-            if all([isinstance(game.map.map[1][7], Tank), isinstance(game.map.map[20][7], Tank)]):
+            if all([isinstance(game.map.map[1][7], Tank),
+                    isinstance(game.map.map[20][7], Tank)]):
                 game.map.map[10][15] = game.map.get_free_block(15, 10)
                 game.map.map[11][15] = game.map.get_free_block(15, 11)
             else:
                 game.map.map[10][15] = lock_cell
                 game.map.map[11][15] = lock_cell
 
-            if all(cell in game.map.free_tiles for cell in sum([game.map.map[2][22:24], game.map.map[3][22:24],
-                                                                game.map.map[6][30:32], game.map.map[7][30:32],
-                                                                game.map.map[18][21:23], game.map.map[19][21:23],
-                                                                game.map.map[21][29:31]], [])):
+            if all(cell in game.map.free_tiles for cell in
+                   sum([game.map.map[2][22:24], game.map.map[3][22:24],
+                        game.map.map[6][30:32], game.map.map[7][30:32],
+                        game.map.map[18][21:23], game.map.map[19][21:23],
+                        game.map.map[21][29:31]], [])):
                 game.map.map[10][36] = game.map.get_free_block(15, 10)
                 game.map.map[11][36] = game.map.get_free_block(15, 11)
-            if all(cell in game.map.free_tiles for cell in sum([game.map.map[0][51:55], game.map.map[1][51:55]], [])):
+            if all(cell in game.map.free_tiles for cell in sum(
+                    [game.map.map[0][51:55], game.map.map[1][51:55]], [])):
                 for x in range(51, 56):
                     game.map.map[6][x] = game.map.get_free_block(51, 6)
 
-            if all(cell in game.map.free_tiles for cell in sum([game.map.map[20][51:55], game.map.map[21][51:55]], [])):
+            if all(cell in game.map.free_tiles for cell in sum(
+                    [game.map.map[20][51:55], game.map.map[21][51:55]], [])):
                 for x in range(51, 56):
                     game.map.map[15][x] = game.map.get_free_block(51, 15)
 
         def lock_control_points_first_chapter():
             lock_cell = game.map.unbreak_tiles[1]
-            if all(cell in game.map.free_tiles for cell in sum([game.map.map[1][1:3], game.map.map[2][1:3],
-                                                             game.map.map[1][11:13], game.map.map[2][11:13]], [])):
+            if all(cell in game.map.free_tiles for cell in sum(
+                    [game.map.map[1][1:3], game.map.map[2][1:3],
+                     game.map.map[1][11:13], game.map.map[2][11:13]], [])):
 
                 game.map.map[1][6] = lock_cell
                 game.map.map[1][8] = lock_cell
                 game.map.map[2][7] = lock_cell
 
-            if all(cell in game.map.free_tiles for cell in sum([game.map.map[19][1:3], game.map.map[20][1:3],
-                                                             game.map.map[14][6:8], game.map.map[15][6:8]], [])):
+            if all(cell in game.map.free_tiles for cell in sum(
+                    [game.map.map[19][1:3], game.map.map[20][1:3],
+                     game.map.map[14][6:8], game.map.map[15][6:8]], [])):
                 game.map.map[20][6] = lock_cell
                 game.map.map[19][7] = lock_cell
 
@@ -1226,13 +1305,13 @@ class LevelLoader:
                     for x in range(48, 58, 2):
                         game.make_explode(x, y)
 
-        # Формирование кадра(команды рисования на холсте):
+        
         main_map = Map("10_lvl.tmx")
-        all_sprites = pygame.sprite.Group()  # создадим группу, содержащую все спрайты
+        all_sprites = pygame.sprite.Group()  
 
         bullets = []
 
-        game = Game(main_map, bullets, clock, sprites_group=[all_sprites])
+        game = Game(main_map, bullets, sprites_group=[all_sprites])
         self.init_reasons_and_missions(game)
         game.parse_cutscenes_from_file('10_lvl')
 
@@ -1243,11 +1322,15 @@ class LevelLoader:
                 if type_of_tile == 'free_lava':
                     game.map.lava.append((x, y))
 
-        game.events.extend([render_boss, lava_kill_tanks, explode_player_every_momenth, lock_control_points_first_chapter,
+        game.events.extend([render_boss, lava_kill_tanks,
+                            explode_player_every_momenth,
+                            lock_control_points_first_chapter,
                             shadow_chapter, open_doors, final_explode])
 
-        boss_lifes_over = lambda: all(cell in game.map.free_tiles
-                                      for cell in sum([game.map.map[7][51:56], game.map.map[14][51:56]], []))
+        boss_lifes_over = lambda: all(
+            cell in game.map.free_tiles
+            for cell in sum([game.map.map[7][51:56],
+                             game.map.map[14][51:56]], []))
 
         game.missions = [lambda: len(game.cutscenes) == 0]
         game.defeat_reasons = [self.player_are_dead]
@@ -1264,7 +1347,8 @@ def show_highscore_board():
                             (WINDOW_HEIGHT - black_box.get_height()) // 2))
     screen.blit(fon, ((WINDOW_WIDTH - fon.get_width()) // 2,
                       (WINDOW_HEIGHT - fon.get_height()) // 2))
-    labels = [': '.join((i[0].ljust(10, '-'), str(i[1]))) for i in load_user_info()['high_scores']]
+    labels = [': '.join((i[0].ljust(10, '-'), str(i[1])))
+              for i in load_user_info()['high_scores']]
     draw_the_dialog_background('РЕКОРДЫ')
     for y in range(250, 500, 50):
         draw_the_dialog_background(str(labels[min(y // 50 - 5, len(labels) - 1)]), y=y)
@@ -1272,11 +1356,13 @@ def show_highscore_board():
 
 def calculate_highscore(end_game, begin_game):
     if not isinstance(end_game, Game) and not isinstance(begin_game, Game):
-        lvl_score = len([tank for tank in begin_game if tank.team == 'black']) \
-                    - len([tank for tank in end_game if tank.team == 'black'])
+        lvl_score = len([tank for tank in begin_game if tank.team == 'black']) - \
+                    len([tank for tank in end_game if tank.team == 'black'])
     else:
-        lvl_score = len([tank for tank in begin_game.uncontrolled_tanks if tank.team == 'black'])\
-                    - len([tank for tank in end_game.uncontrolled_tanks if tank.team == 'black'])
+        lvl_score = len([tank for tank in
+                         begin_game.uncontrolled_tanks if tank.team == 'black']) - \
+                    len([tank for tank in
+                         end_game.uncontrolled_tanks if tank.team == 'black'])
     return lvl_score
 
 
@@ -1303,8 +1389,11 @@ def show_info_menu():
     screen.blit(fon, ((WINDOW_WIDTH - fon.get_width()) // 2,
                       (WINDOW_HEIGHT - fon.get_height()) // 2))
 
-    labels = ('W, S - кнопки движения корпуса.', 'A, D - кнопки поворота корпуса.', 'Q, E - кнопки поворота башни.',
-              'R - кнопка стрельбы.', 'F12 - скриншот игры. Лежит в папке data/screenshots',
+    labels = ('W, S - кнопки движения корпуса.',
+              'A, D - кнопки поворота корпуса.',
+              'Q, E - кнопки поворота башни.',
+              'R - кнопка стрельбы.',
+              'F12 - скриншот игры. Лежит в папке data/screenshots',
               'Если любишь собирать очки, я расскажу тебе секретик...',
               'Очки начисляются за каждого убитого врага,',
               'и когда ты успешно проходишь уровень.',
@@ -1315,7 +1404,8 @@ def show_info_menu():
               'Чтобы выиграть - выполняй приказы. Отбой!', '')
     draw_the_dialog_background('КАК ИГРАТЬ')
     for y in range(200, 500, 25):
-        draw_the_dialog_background(labels[min((y // 25) - (200 // 25), len(labels) - 1)], y=y)
+        draw_the_dialog_background(
+            labels[min((y // 25) - (200 // 25), len(labels) - 1)], y=y)
 
 
 def show_confirmation_dialog(manager, action_long_desc):
@@ -1366,7 +1456,9 @@ def show_cutscene(surface, replica):
     surface.blit(dark_rect, (0, 79 - 150))
     surface.blit(dark_rect, (0, 450))
     if replica:
-        character, image, message = replica[0], CHARACTERS_DICT.get(replica[0], CHARACTERS_DICT[None]), replica[1]
+        character = replica[0]
+        image = CHARACTERS_DICT.get(replica[0], CHARACTERS_DICT[None])
+        message = replica[1]
 
         surface.blit(image, (60, 410))
 
@@ -1387,7 +1479,8 @@ def show_cutscene(surface, replica):
             message_text = message_font.render(message, True, (255, 255, 255))
             surface.blit(message_text, (65, text_y))
         skip_text = message_font.render('>>ПРОБЕЛ', True, (255, 255, 255))
-        surface.blit(skip_text, (WINDOW_WIDTH - skip_text.get_width() - 10, WINDOW_HEIGHT - skip_text.get_height() - 10))
+        surface.blit(skip_text, (WINDOW_WIDTH - skip_text.get_width() - 10,
+                                 WINDOW_HEIGHT - skip_text.get_height() - 10))
 
 
 def start_screen():
@@ -1408,7 +1501,8 @@ def start_screen():
         # init title
         y = title_text_y
         for text in title_text:
-            screen.blit(text, ((WINDOW_WIDTH - text.get_width()) // 2, y))
+            screen.blit(text, (
+                (WINDOW_WIDTH - text.get_width()) // 2, y))
             y += text.get_height()
 
     draw_the_main_background()
@@ -1427,16 +1521,24 @@ def start_screen():
                 do_show_info = False
                 do_show_scores = False
             if event.type == pygame.USEREVENT:
-                if event.user_type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
-                    pass
+                if event.user_type == pygame_gui.UI_BUTTON_ON_HOVERED:
+                    volume = load_user_info()['sound_value'] / 100
+                    choice_of_the_options.set_volume(volume)
+                    choice_of_the_options.play()
                 if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
-                    if event.ui_element == start_menu_btn_dict['CONTINUE']:
-                        return getattr(LevelLoader(), f'init_lvl{load_saved_game()}_scene')()
+                    volume = load_user_info()['sound_value'] / 100
+                    selecting_of_the_options.set_volume(volume)
+                    selecting_of_the_options.play()
+                    if event.ui_element == \
+                            start_menu_btn_dict['CONTINUE']:
+                        return getattr(LevelLoader(),
+                                       f'init_lvl{load_saved_game()}_scene')()
                     elif event.ui_element == start_menu_btn_dict['NEW GAME']:
                         if load_saved_game() > 1:
-                            conf_dialog = show_confirmation_dialog(main_menu_manager, 'Найдена сохраненная игра.'
-                                                                                  ' Вы уверены, что хотите начать'
-                                                                                  ' сначала?')
+                            conf_dialog = show_confirmation_dialog(
+                                main_menu_manager,
+                                'Найдена сохраненная игра. \n ' +
+                                'Вы уверены, что хотите \n начать сначала?')
                             func_to_confirm = new_game
                         else:
                             return new_game()
@@ -1447,10 +1549,10 @@ def start_screen():
                         do_show_info = True
                     elif event.ui_element == start_menu_btn_dict['EXIT']:
                         save_user_info()
-                        conf_dialog = show_confirmation_dialog(main_menu_manager, 'Вы уверены, что хотите выйти?')
+                        conf_dialog = show_confirmation_dialog(
+                            main_menu_manager, 'Вы уверены, что хотите выйти?')
                         func_to_confirm = terminate
                     elif event.ui_element == sound_btn:
-                        play_sound(None, os.path.join(SOUND_DIR, 'tanks', 'Player', 'fire.mp3'))
                         sound_value_slider.show()
                         music_value_slider.hide()
                     elif event.ui_element == music_btn:
@@ -1463,7 +1565,8 @@ def start_screen():
                         rect = conf_dialog.confirm_button.get_abs_rect()
                         x, y, w, h = rect.x, rect.y, rect.w, rect.h
                         mouse_x, mouse_y = event.pos
-                        if mouse_x in range(x, x + w) and mouse_y in range(y, y + h):
+                        if mouse_x in range(x, x + w) and \
+                                mouse_y in range(y, y + h):
                             return func_to_confirm()
 
             if pygame.mouse.get_pos()[1] < 525:
@@ -1477,7 +1580,8 @@ def start_screen():
                 music_on_img if music_value_slider.current_value else music_off_img)
 
             main_menu_manager.process_events(event)
-        # Применение всех настроек в реальном времени
+
+        # Apply all settings in real time
         save_user_info()
         load_user_info()
         main_menu_manager.update(time_delta)
@@ -1499,8 +1603,8 @@ def show_titles():
     play_background_music('titles')
     file = open(f'{CUTSCENES_DIR}/titles', 'r', encoding='utf-8')
     labels = [line.strip() for line in file]
-
     file.close()
+
     for timer in range(0, 3700, 2):
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
@@ -1508,28 +1612,27 @@ def show_titles():
                     return start_screen()
         screen.fill('#000000')
         for y in range(WINDOW_HEIGHT, 5000, 50):
-            draw_the_dialog_background(labels[min((y // 50 - WINDOW_HEIGHT // 50) - 1, len(labels) - 1)], y=y - timer)
+            draw_the_dialog_background(
+                labels[min((y // 50 - WINDOW_HEIGHT // 50) - 1,
+                           len(labels) - 1)], y=y - timer)
 
         pygame.display.flip()
         clock.tick(FPS)
-
     return start_screen()
 
 
 def main():
-    icon = load_image('tank_icon.ico', colorkey=0)
-    pygame.display.set_icon(icon)
-    pygame.mixer.init()
+    global score
     lvl_count = 1
     lvl_loader = LevelLoader()
 
-    # Главный игровой цикл:
+    # Main game loop:
     running = True
     load_user_info()
     game = start_screen()
     is_paused = False
     while running:
-        # Цикл приема и обработки сообщений:
+        # Loop of receiving and processing events:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -1540,16 +1643,20 @@ def main():
                         if event.key == pygame.K_ESCAPE:
                             continue
                         elif event.key == pygame.K_RETURN:
+                            volume = load_user_info()['sound_value'] / 100
+                            back_to_menu.set_volume(volume)
+                            back_to_menu.play()
                             game = start_screen()
                             break
             if event.type == pygame.KEYDOWN:
-                if event.key and game.end_game_and_return_status(screen, return_status=True) and game.timer > 15:
-                    status = game.end_game_and_return_status(screen, return_status=True)
-                    global score
-                    print(load_saved_game())
+                if event.key and game.end_game_and_return_status(
+                        screen, return_status=True) and game.timer > 15:
+                    status = game.end_game_and_return_status(
+                        screen, return_status=True)
                     if status == 'win':
-                        temp_score = calculate_highscore(game, getattr(lvl_loader, f'init_lvl{lvl_count}_scene')())
-                        score = score + temp_score
+                        temp_score = calculate_highscore(game, getattr(
+                            lvl_loader, f'init_lvl{lvl_count}_scene')())
+                        score += temp_score
                         save_high_score_for_current_player(score)
                         if lvl_count != load_saved_game():
                             lvl_count = load_saved_game()
@@ -1562,25 +1669,24 @@ def main():
                         game = start_screen()
                     else:
                         game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')()
-
-                if event.key == pygame.K_SPACE and game.show_cutscenes_and_return_status(return_status=True):
+                elif event.key == pygame.K_SPACE and \
+                        game.show_cutscenes_and_return_status(return_status=True):
                     game.timer = 1
-
-                if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5,
-                                 pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_0]:
+                elif event.key in range(pygame.K_0, pygame.K_9 + 1):
                     lvl_count = int(event.unicode)
-                    if lvl_count == 0:
+                    if not lvl_count:
                         lvl_count = 10
                     game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')()
                 elif event.key == pygame.K_h:
-                    game.controlled_tanks[0].health = 999
-
+                    if pygame.key.get_mods() & pygame.KMOD_CTRL:
+                        game.controlled_tanks[0].health = 999
                 elif event.key == pygame.K_F12:
-                    now = ''.join([elem for elem in str(dt.datetime.now()) if elem.isdigit()])
+                    now = ''.join([elem for elem in str(datetime.now()) if elem.isdigit()])
                     pygame.image.save(screen, f'data/screenshots/screenshot_{now}.png')
                 elif event.key == pygame.K_ESCAPE and not is_paused:
                     show_game_message(screen, 'PAUSE', 'press Enter to exit')
                     is_paused = True
+
         if not is_paused:
             game.render(screen)
             if not game.is_active_cutscene:
