@@ -108,7 +108,8 @@ def play_sound(object, name_of_sound):
         if name_of_sound == 'death':
             volume += 0.2
         sound.set_volume(volume)
-        if (object.__repr__() == 'Beast' and name_of_sound == 'death') or name_of_sound == 'near_fly':
+        if (object.__repr__() == 'Beast' and name_of_sound == 'death') or \
+                name_of_sound == 'near_fly':
             sound.play()
         else:
             sound.play(maxtime=1000, fade_ms=200)
@@ -121,7 +122,8 @@ def play_sound(object, name_of_sound):
 
 
 class Tank(pygame.sprite.Sprite):
-    def __init__(self, position, rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1,
+    def __init__(self, position, rotate_turret=0,
+                 rotate_hull=0, control_keys=CONTROL_KEYS_V1,
                  group=None, respawn=False):
         super().__init__()
 
@@ -314,9 +316,11 @@ class Tank(pygame.sprite.Sprite):
 
 
 class Convoy(Tank):
-    def __init__(self, position, rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1,
+    def __init__(self, position, rotate_turret=0,
+                 rotate_hull=0, control_keys=CONTROL_KEYS_V1,
                  group=None, respawn=False):
-        super().__init__(position, rotate_turret, rotate_hull, control_keys, group, respawn)
+        super().__init__(position, rotate_turret, rotate_hull,
+                         control_keys, group, respawn)
         self.team = 'green'
         self.speed = 1
         self.accuracy = 1
@@ -335,10 +339,12 @@ class Convoy(Tank):
 
 
 class Player(Tank):
-    def __init__(self, position, rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1,
+    def __init__(self, position, rotate_turret=0,
+                 rotate_hull=0, control_keys=CONTROL_KEYS_V1,
                  group=None, respawn=False):
         self.sound_dict = dict()
-        super().__init__(position, rotate_turret, rotate_hull, control_keys, group)
+        super().__init__(position, rotate_turret,
+                         rotate_hull, control_keys, group)
 
         # Иницализация уникальных звуков для игрока
         self.sound_dict['turn_turret'] = pygame.mixer.Sound(
@@ -387,9 +393,11 @@ class Player(Tank):
 
 
 class Allied(Tank):
-    def __init__(self, position, rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1,
+    def __init__(self, position, rotate_turret=0,
+                 rotate_hull=0, control_keys=CONTROL_KEYS_V1,
                  group=None, respawn=False):
-        super().__init__(position, rotate_turret, rotate_hull, control_keys, group, respawn)
+        super().__init__(position, rotate_turret,
+                         rotate_hull, control_keys, group, respawn)
         self.team = 'green'
         self.speed = 0.25
         self.accuracy = 0.25
@@ -399,9 +407,11 @@ class Allied(Tank):
 
 
 class Beast(Tank):
-    def __init__(self, position, rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1,
+    def __init__(self, position, rotate_turret=0,
+                 rotate_hull=0, control_keys=CONTROL_KEYS_V1,
                  group=None, respawn=False):
-        super().__init__(position, rotate_turret, rotate_hull, control_keys, group, respawn)
+        super().__init__(position, rotate_turret,
+                         rotate_hull, control_keys, group, respawn)
         self.speed = 0.666
         self.accuracy = 0.333
 
@@ -419,15 +429,18 @@ class Beast(Tank):
             position[0] * TILE_SIZE, position[1] * TILE_SIZE
         self.x, self.y = position
         sound = pygame.mixer.Sound(
-            os.path.join(SOUND_DIR, 'tanks', self.__repr__(), f'move{choice(["_1", "_2", "_3"])}.mp3'))
+            os.path.join(SOUND_DIR, 'tanks', self.__repr__(),
+                         f'move{choice(["_1", "_2", "_3"])}.mp3'))
         sound.set_volume(calculate_distance_for_player(self))
         sound.play()
 
 
 class Heavy(Tank):
-    def __init__(self, position, rotate_turret=0, rotate_hull=0, control_keys=CONTROL_KEYS_V1,
+    def __init__(self, position, rotate_turret=0,
+                 rotate_hull=0, control_keys=CONTROL_KEYS_V1,
                  group=None, respawn=False):
-        super().__init__(position, rotate_turret, rotate_hull, control_keys, group, respawn)
+        super().__init__(position, rotate_turret,
+                         rotate_hull, control_keys, group, respawn)
         self.speed = 0.10
         self.accuracy = 0.40
         self.health = 2
