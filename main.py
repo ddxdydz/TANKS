@@ -1566,16 +1566,7 @@ def main():
                 if event.key == pygame.K_SPACE and game.show_cutscenes_and_return_status(return_status=True):
                     game.timer = 1
 
-                if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5,
-                                 pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_0]:
-                    lvl_count = int(event.unicode)
-                    if lvl_count == 0:
-                        lvl_count = 10
-                    game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')()
-                elif event.key == pygame.K_h:
-                    game.controlled_tanks[0].health = 999
-
-                elif event.key == pygame.K_F12:
+                if event.key == pygame.K_F12:
                     now = ''.join([elem for elem in str(dt.datetime.now()) if elem.isdigit()])
                     pygame.image.save(screen, f'data/screenshots/screenshot_{now}.png')
                 elif event.key == pygame.K_ESCAPE and not is_paused:
