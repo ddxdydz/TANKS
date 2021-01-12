@@ -6,7 +6,6 @@ from queue import Queue
 import pygame
 import pygame_gui
 import pytmx
-import csv
 from sprites import *
 import pickle
 
@@ -17,7 +16,7 @@ TILE_SIZE = 40
 FPS = 15
 MAPS_DIR = 'data/maps'
 FONTS_DIR = 'data/fonts'
-GUI_THEMES_DIR = 'data/gui themes'
+GUI_THEMES_DIR = 'data/gui_themes'
 SAVED_SESSION_DIR = 'data/saved sessions'
 SAVED_USER_INFO_DIR = 'data/saved user info'
 SOUND_DIR = 'sounds'
@@ -66,7 +65,7 @@ player_coords = (0, 0)
 score = 0
 
 main_menu_manager = pygame_gui.UIManager(
-    WINDOW_SIZE, f'{GUI_THEMES_DIR}/start_manu_theme.json')
+    WINDOW_SIZE, f'{GUI_THEMES_DIR}/main_theme.json')
 game_pause_manager = pygame_gui.UIManager(WINDOW_SIZE)
 game_process_manager = pygame_gui.UIManager(WINDOW_SIZE)
 
@@ -1490,8 +1489,7 @@ def start_screen():
         if do_show_scores:
             show_highscore_board()
         if do_show_info:
-            # show_info_menu()
-            show_titles()
+            show_info_menu()            
 
         pygame.display.flip()
         clock.tick(FPS)
@@ -1519,6 +1517,8 @@ def show_titles():
 
 
 def main():
+    icon = load_image('tank_icon.ico', colorkey=0)
+    pygame.display.set_icon(icon)
     pygame.mixer.init()
     lvl_count = 1
     lvl_loader = LevelLoader()
