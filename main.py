@@ -298,8 +298,18 @@ class Map:
                     self.unbreak_tiles.append(id_of_tile)
         self.shadow = []
         self.lava = []
+        self.map_objects = []
+
+    def update_objects(self):
+        for object in self.map_objects:
+            x, y = object.get_position()
+            if isinstance(self.map[y][x], Tank):
+                object.trigger_action()
+            else:
+                self.map[y][x] = object
 
     def render(self, screen):
+        self.update_objects()
         screen.fill('#000000')
         camera_coord = \
             abs(self.camera.rect.x // TILE_SIZE), \
@@ -314,10 +324,10 @@ class Map:
                         continue
 
                     gid = self.map[y][x]
-                    tank_stand_on = False
+                    object_stand_on = False
                     if not isinstance(gid, int):
                         gid = self.get_free_block(x, y)
-                        tank_stand_on = True
+                        object_stand_on = True
 
                     tile = self.tiled_map.get_tile_image_by_gid(gid)
                     if tile:
@@ -330,7 +340,7 @@ class Map:
                         if (x, y) in self.lava:
                             screen.blit(lava, (tile_rect.width, tile_rect.height))
 
-                        if tank_stand_on:
+                        if object_stand_on:
                             screen.blit(self.map[y][x].image,
                                         (tile_rect.width, tile_rect.height))
                             if getattr(self.map[y][x], 'tank_turret', False):
@@ -365,7 +375,8 @@ class Map:
         return id_of_free_block
 
     def is_free(self, position):
-        return self.get_tile_id(position) in self.free_tiles and \
+        return (self.get_tile_id(position) in self.free_tiles
+                or isinstance(self.get_tile_id(position), MapObject)) and \
                position not in self.shadow
 
     def find_player(self):
@@ -391,42 +402,26 @@ class Map:
                 for y_step in range(y, y + h):
                     for x_step in range(x, x + w):
                         special_group.append((x_step, y_step))
+            elif 'Map' in tile_object.name:
+                x, y = int(tile_object.x // TILE_SIZE), int(tile_object.y // TILE_SIZE)
+                init_object_string = f'{tile_object.name}((x, y))'
+                self.map_objects.append(eval(init_object_string))
+                
             else:
                 rotate_turret = tile_object.properties['rotate_turret']
                 rotate_hull = tile_object.properties['rotate_hull']
                 destination = tile_object.properties['destination']
                 respawn = tile_object.properties.get('respawn', False)
                 x, y = int(tile_object.x // TILE_SIZE), int(tile_object.y // TILE_SIZE)
+                init_object_string = f'{tile_object.name.split(" ")[0]}((x, y),' \
+                                     f' rotate_turret=rotate_turret,' \
+                                     f' rotate_hull=rotate_hull, group=sprite_group,' \
+                                     f' respawn=respawn)'
                 if 'Player' in tile_object.name:
-                    player_list.append(
-                        Player((x, y), rotate_turret=rotate_turret,
-                               rotate_hull=rotate_hull, group=sprite_group,
-                               respawn=respawn))
-                elif 'Tank' in tile_object.name:
-                    tank_list.append(
-                        Tank((x, y), rotate_turret=rotate_turret,
-                             rotate_hull=rotate_hull, group=sprite_group,
-                             respawn=respawn))
-                elif 'Beast' in tile_object.name:
-                    tank_list.append(
-                        Beast((x, y), rotate_turret=rotate_turret,
-                              rotate_hull=rotate_hull, group=sprite_group,
-                              respawn=respawn))
-                elif 'Heavy' in tile_object.name:
-                    tank_list.append(
-                        Heavy((x, y), rotate_turret=rotate_turret,
-                              rotate_hull=rotate_hull, group=sprite_group,
-                              respawn=respawn))
-                elif 'Allied' in tile_object.name:
-                    tank_list.append(
-                        Allied((x, y), rotate_turret=rotate_turret,
-                               rotate_hull=rotate_hull, group=sprite_group,
-                               respawn=respawn))
-                elif 'Convoy' in tile_object.name:
-                    tank_list.append(
-                        Convoy((x, y), rotate_turret=rotate_turret,
-                               rotate_hull=rotate_hull, group=sprite_group,
-                               respawn=respawn))
+                    player_list.append(eval(init_object_string))
+                else:
+                    tank_list.append(eval(init_object_string))
+
                 if destination == 'self':
                     destinations[tank_list[-1]] = None
                 elif destination == 'player':

@@ -501,3 +501,45 @@ class Bullet(pygame.sprite.Sprite):
         distance = calculate_distance_for_player(self)
         if distance == 0.43 and self != hero_bullet_dict[0]:
             play_sound(self, 'near_fly')
+
+
+class MapObject(pygame.sprite.Sprite):
+    def __init__(self, position, respawn=False):
+        super(MapObject, self).__init__()
+        self.image = explosion
+        self.x, self.y = position
+        self.respawn = False
+        self.init_image()
+
+    def init_image(self):
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = self.x * TILE_SIZE, self.y * TILE_SIZE
+
+    def get_position(self):
+        return self.x, self.y
+
+    def set_position(self, position):
+        self.x, self.y = position
+
+    def trigger_action(self):
+        print(self.get_position())
+
+    def __repr__(self):
+        return 'MapObject'
+
+
+class Life_MapObject(MapObject):
+    def __init__(self, position, respawn=False):
+        super().__init__(position, respawn)
+        self.image = lava
+        self.init_image()
+
+    def trigger_action(self):
+        print('give_life')
+        if not self.respawn:
+            self.set_position((-10, -10))
+
+    def __repr__(self):
+        return 'Life_MapObject'
+
+
