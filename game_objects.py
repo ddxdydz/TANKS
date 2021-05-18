@@ -3,6 +3,8 @@ from main import *
 pygame.init()
 screen = pygame.display.set_mode(WINDOW_SIZE)
 
+# Корпуса и башни персонажей
+
 green_tank_turret = pygame.transform.scale(load_image(
             "green_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 green_tank_hull = pygame.transform.scale(load_image(
@@ -44,6 +46,8 @@ bullet_tnt = pygame.transform.scale(load_image(
 boss_hull = pygame.transform.scale(load_image(
             "boss.png", colorkey=-1), (640, 240))
 
+# Эффекты
+
 lava = pygame.transform.scale(load_image(
             "lava.jpg", colorkey=0), (TILE_SIZE, TILE_SIZE))
 explosion = pygame.transform.scale(load_image(
@@ -52,6 +56,15 @@ flash = pygame.transform.scale(load_image(
             "unbreak.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 smoke = pygame.transform.scale(load_image(
             "smoke.png", colorkey=0), (TILE_SIZE, TILE_SIZE))
+
+health = pygame.transform.scale(load_image(
+            "health.png", colorkey=0), (25, 25))
+
+losted_health = pygame.transform.scale(load_image(
+            "losted_health.png", colorkey=0), (25, 25))
+
+extra_health = pygame.transform.scale(load_image(
+            "extra_health.png", colorkey=0), (25, 25))
 
 target_search = pygame.transform.scale(load_image(
             "target_search.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
@@ -178,6 +191,8 @@ class Tank(pygame.sprite.Sprite):
             os.path.join(SOUND_DIR, 'tanks', self.__repr__(), 'death.mp3'))
         self.sound_dict['move'] = pygame.mixer.Sound(
             os.path.join(SOUND_DIR, 'tanks', self.__repr__(), 'move.mp3'))
+        self.sound_dict['respawn'] = pygame.mixer.Sound(
+            os.path.join(SOUND_DIR, 'other', 'respawn.mp3'))
 
         if self.respawn:
             self.respawn_time = 10 * FPS
@@ -210,11 +225,11 @@ class Tank(pygame.sprite.Sprite):
         self.current_move_back_cooldown -= speed_of_update
         self.current_turn_cooldown -= speed_of_update
         self.current_turn_turret_cooldown -= speed_of_update
-        # print(self.current_move_forward_cooldown)
         if self.respawn and self.is_crashed:
             self.respawn_time -= 1
             self.clear_the_tank()
             if self.respawn_time <= 0:
+                play_sound(self, 'respawn')
                 self.respawn_time = 10 * FPS
                 self.is_crashed = False
                 self.init_tank_graphics(*self.respawn_args)
