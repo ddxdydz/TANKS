@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.4" tiledversion="1.4.3" orientation="orthogonal" renderorder="right-down" width="15" height="15" tilewidth="40" tileheight="40" infinite="0" nextlayerid="3" nextobjectid="12">
+ <tileset firstgid="1" source="tiles_map.tsx"/>
+ <layer id="1" name="Слой тайлов 1" width="15" height="15">
+  <data encoding="csv">
+7,17,2,6,6,6,6,11,6,6,6,6,2,7,7,
+17,18,6,6,6,6,5,11,5,4,6,1,6,18,17,
+2,6,6,6,6,5,5,5,5,5,6,11,6,6,2,
+6,6,11,1,6,5,2,8,2,5,6,6,11,6,6,
+6,6,11,11,6,5,7,2,7,5,6,6,6,6,6,
+6,6,6,6,5,2,7,18,7,2,5,6,6,1,11,
+6,6,6,5,2,7,18,18,18,7,2,5,6,4,6,
+6,11,6,5,5,18,18,12,18,18,5,5,6,11,6,
+6,4,6,5,2,7,18,18,18,7,2,5,6,6,6,
+6,11,6,6,5,2,7,18,7,2,5,6,6,6,6,
+11,6,6,11,6,5,7,2,7,5,6,6,6,6,6,
+6,6,11,6,6,5,2,8,2,5,6,11,11,6,6,
+2,6,6,6,6,5,5,5,5,11,6,6,1,6,2,
+7,18,6,6,11,7,4,5,11,6,6,6,6,18,7,
+17,17,2,6,11,1,1,6,11,6,6,11,2,17,7
+</data>
+ </layer>
+ <objectgroup id="2" name="Слой объектов 1">
+  <object id="1" name="Life_MapObject" x="280" y="120" width="40" height="40">
+   <properties>
+    <property name="respawn" type="bool" value="true"/>
+    <property name="respawn_time" type="int" value="600"/>
+   </properties>
+  </object>
+  <object id="2" name="Life_MapObject" x="280" y="440" width="40" height="40">
+   <properties>
+    <property name="respawn" type="bool" value="true"/>
+    <property name="respawn_time" type="int" value="600"/>
+   </properties>
+  </object>
+  <object id="4" name="Shadow" x="560" y="0" width="40" height="600"/>
+  <object id="5" name="Shadow" x="0" y="0" width="40" height="600"/>
+  <object id="6" name="Shadow" x="40" y="0" width="520" height="40"/>
+  <object id="7" name="Shadow" x="40" y="560" width="520" height="40"/>
+  <object id="8" name="Player" x="40" y="40" width="40" height="40">
+   <properties>
+    <property name="destination" value=""/>
+    <property name="respawn" type="bool" value="true"/>
+    <property name="rotate_hull" type="int" value="270"/>
+    <property name="rotate_turret" type="int" value="90"/>
+   </properties>
+  </object>
+  <object id="9" name="Player" x="520" y="40" width="40" height="40">
+   <properties>
+    <property name="destination" value=""/>
+    <property name="respawn" type="bool" value="true"/>
+    <property name="rotate_hull" type="int" value="180"/>
+    <property name="rotate_turret" type="int" value="180"/>
+   </properties>
+  </object>
+  <object id="10" name="Player" x="520" y="520" width="40" height="40">
+   <properties>
+    <property name="destination" value=""/>
+    <property name="respawn" type="bool" value="true"/>
+    <property name="rotate_hull" type="int" value="90"/>
+    <property name="rotate_turret" type="int" value="270"/>
+   </properties>
+  </object>
+  <object id="11" name="Player" x="40" y="520" width="40" height="40">
+   <properties>
+    <property name="destination" value=""/>
+    <property name="respawn" type="bool" value="true"/>
+    <property name="rotate_hull" type="int" value="0"/>
+    <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+ </objectgroup>
+</map>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.4" tiledversion="1.4.3" orientation="orthogonal" renderorder="right-down" width="15" height="36" tilewidth="40" tileheight="40" infinite="0" nextlayerid="3" nextobjectid="38">
+<map version="1.4" tiledversion="1.4.3" orientation="orthogonal" renderorder="right-down" width="15" height="36" tilewidth="40" tileheight="40" infinite="0" nextlayerid="3" nextobjectid="39">
  <tileset firstgid="1" source="tiles_map.tsx"/>
  <layer id="1" name="Слой тайлов 1" width="15" height="36">
   <data encoding="csv">
@@ -31,7 +31,7 @@
 2,8,2,1,1,2,8,2,8,2,8,8,2,8,2,
 2,8,2,1,1,2,8,2,8,2,8,8,2,8,2,
 2,8,2,1,1,2,8,2,8,2,8,8,2,8,2,
-2,8,2,1,1,2,8,2,8,2,8,8,2,8,2,
+2,8,2,1,8,2,8,2,8,2,8,8,2,8,2,
 2,8,8,1,1,2,8,2,8,2,8,8,8,8,2,
 2,2,2,2,8,2,2,8,2,2,8,2,2,2,2,
 2,3,3,2,8,8,8,4,13,8,8,2,3,3,2,
@@ -145,5 +145,10 @@
   <object id="35" name="Shadow" x="560" y="400" width="40" height="160"/>
   <object id="36" name="Shadow" x="560" y="1320" width="40" height="80"/>
   <object id="37" name="Shadow" x="0" y="1320" width="40" height="80"/>
+  <object id="38" name="Boost_MapObject" x="160" y="1120" width="40" height="40">
+   <properties>
+    <property name="respawn" type="bool" value="false"/>
+   </properties>
+  </object>
  </objectgroup>
 </map>

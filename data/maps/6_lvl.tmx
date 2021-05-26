@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.4" tiledversion="1.4.3" orientation="orthogonal" renderorder="right-down" width="30" height="30" tilewidth="40" tileheight="40" infinite="0" nextlayerid="3" nextobjectid="16">
+<map version="1.4" tiledversion="1.4.3" orientation="orthogonal" renderorder="right-down" width="30" height="30" tilewidth="40" tileheight="40" infinite="0" nextlayerid="3" nextobjectid="17">
  <tileset firstgid="1" source="tiles_map.tsx"/>
  <layer id="1" name="Слой тайлов 1" width="30" height="30">
   <data encoding="csv">
@@ -125,6 +125,11 @@
     <property name="destination" value="self"/>
     <property name="rotate_hull" type="int" value="180"/>
     <property name="rotate_turret" type="int" value="0"/>
+   </properties>
+  </object>
+  <object id="16" name="Life_MapObject" x="1000" y="400" width="40" height="40">
+   <properties>
+    <property name="respawn" type="bool" value="false"/>
    </properties>
   </object>
  </objectgroup>
