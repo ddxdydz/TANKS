@@ -9,17 +9,17 @@ green_tank_turret = pygame.transform.scale(load_image(
 green_tank_hull = pygame.transform.scale(load_image(
     "green_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 red_tank_turret = pygame.transform.scale(load_image(
-    "red_turret.png", colorkey=0), (TILE_SIZE, TILE_SIZE))
+    "red_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 red_tank_hull = pygame.transform.scale(load_image(
-    "red_hull.png", colorkey=0), (TILE_SIZE, TILE_SIZE))
+    "red_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 blue_tank_turret = pygame.transform.scale(load_image(
-    "blue_turret.png", colorkey=0), (TILE_SIZE, TILE_SIZE))
+    "blue_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 blue_tank_hull = pygame.transform.scale(load_image(
-    "blue_hull.png", colorkey=0), (TILE_SIZE, TILE_SIZE))
+    "blue_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 violet_tank_turret = pygame.transform.scale(load_image(
-    "violet_turret.png", colorkey=0), (TILE_SIZE, TILE_SIZE))
+    "violet_turret.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 violet_tank_hull = pygame.transform.scale(load_image(
-    "violet_hull.png", colorkey=0), (TILE_SIZE, TILE_SIZE))
+    "violet_hull.png", colorkey=-1), (TILE_SIZE, TILE_SIZE))
 
 # Корпуса и башни ботов
 salad_tank_turret = pygame.transform.scale(load_image(

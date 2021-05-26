@@ -634,7 +634,8 @@ class Game:
 
             damage = 1
             if bullet:
-                if tank == bullet.owner and tank.dict_id_bullets['damage_type'] == bullet.damage_type:
+                if tank == bullet.owner and tank.dict_id_bullets[
+                    'damage_type'] == bullet.damage_type:
                     return
                 if bullet.damage_type == URAN_BULET:
                     damage = 2
@@ -1751,7 +1752,7 @@ class Informer:
 
             screen.blit(black_box, (0, WINDOW_HEIGHT - black_box.get_height()))
 
-            pos_x, pos_y = WINDOW_WIDTH // 2 - render.get_width() // 2,\
+            pos_x, pos_y = WINDOW_WIDTH // 2 - render.get_width() // 2, \
                            WINDOW_HEIGHT - black_box.get_height()
             if image:
                 image = pygame.transform.scale(image, (20, 20))
@@ -2143,9 +2144,15 @@ def main():
                         game.timer = 1
 
                 elif event.key == pygame.K_F12:
-                    now = ''.join([elem for elem in str(datetime.now()) if elem.isdigit()])
-                    pygame.image.save(screen, f'data/screenshots/screenshot_{now}.png')
-                    informer.add_info('Скриншот сделан', accept_user)
+                    try:
+                        now = ''.join([elem for elem in str(datetime.now()) if elem.isdigit()])
+                        filename = f'screenshot_{now}.jpg'
+                        screenshot_path = os.path.join(os.getcwd(), 'data', 'screenshots',
+                                                       filename)
+                        pygame.image.save(screen.copy(), screenshot_path)
+                        informer.add_info('Скриншот сделан', accept_user)
+                    except Exception:
+                        informer.add_info('Скриншот не сделан, ошибка программы', remove_user)
                 elif event.key == pygame.K_ESCAPE and not is_paused:
                     show_game_message(screen, 'PAUSE', 'press Enter to exit')
                     is_paused = True
