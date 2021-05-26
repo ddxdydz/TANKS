@@ -108,5 +108,14 @@
          {
             "normal_bg": "#FF0000"
          }
+     },
+     "selection_list.@selection_list_item":
+     {
+         "font":
+         {
+            "name": "Thintel",
+            "size": 20,
+            "regular_path": "data/fonts/Thintel.ttf"
+         }
      }
  }
