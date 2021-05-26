@@ -71,15 +71,9 @@ pygame.display.set_caption(TITLE)
 screen = pygame.display.set_mode(WINDOW_SIZE)
 clock = pygame.time.Clock()
 
-# Init temp values
-player_coords = (0, 0)
-
 # Init UI
-
 main_menu_manager = pygame_gui.UIManager(
-    WINDOW_SIZE, f'{GUI_THEMES_DIR}/main_theme.json')
-game_pause_manager = pygame_gui.UIManager(WINDOW_SIZE)
-game_process_manager = pygame_gui.UIManager(WINDOW_SIZE)
+    WINDOW_SIZE, os.path.join(os.getcwd(), GUI_THEMES_DIR, 'main_theme.json'))
 
 # Init main menu title text
 title_size = 80
@@ -284,8 +278,8 @@ def init_user_info():
             save_current_user('USER_NAME')
             user = load_current_user()
             user_info = {user:
-                             {'sound_value': 100,
-                              'music_value': 100,
+                             {'sound_value': 60,
+                              'music_value': 60,
                               'current_score': 0,
                               'high_score': 0,
                               'current_lvl': 1,
@@ -1745,7 +1739,7 @@ class Informer:
                 'timer': 10}
         self.info_list.append(args)
 
-    def show_info_about_volume(self):
+    def show_toast_info(self):
         for info in self.info_list:
             text = info['text']
             image = info['image']
@@ -1761,8 +1755,8 @@ class Informer:
                            WINDOW_HEIGHT - black_box.get_height()
             if image:
                 image = pygame.transform.scale(image, (20, 20))
-                image_pos_x = (WINDOW_WIDTH + image.get_width() - render.get_width()) // 2
-                pos_x = (WINDOW_WIDTH - image.get_width() - render.get_width()) // 2
+                image_pos_x = (WINDOW_WIDTH - image.get_width() - render.get_width()) // 2
+                pos_x = (WINDOW_WIDTH + image.get_width() - render.get_width()) // 2
                 screen.blit(image, (image_pos_x, pos_y))
 
             screen.blit(render, (pos_x, pos_y))
@@ -2147,19 +2141,11 @@ def main():
                         skiping_cutscene = True
                     else:
                         game.timer = 1
-                # Читы
-                elif event.key in range(pygame.K_0, pygame.K_9 + 1):
-                    lvl_count = int(event.unicode)
-                    if not lvl_count:
-                        lvl_count = 10
-                    game = getattr(lvl_loader, f'init_lvl{lvl_count}_scene')()
-                elif event.key == pygame.K_h:
-                    if pygame.key.get_mods() & pygame.KMOD_CTRL:
-                        game.controlled_tanks[0].health = 999
 
                 elif event.key == pygame.K_F12:
                     now = ''.join([elem for elem in str(datetime.now()) if elem.isdigit()])
                     pygame.image.save(screen, f'data/screenshots/screenshot_{now}.png')
+                    informer.add_info('Скриншот сделан', accept_user)
                 elif event.key == pygame.K_ESCAPE and not is_paused:
                     show_game_message(screen, 'PAUSE', 'press Enter to exit')
                     is_paused = True
@@ -2176,7 +2162,7 @@ def main():
                     game.update_controlled_tanks()
                     game.update_uncontrolled_tanks()
             game.show_cutscenes()
-        informer.show_info_about_volume()
+        informer.show_toast_info()
         pygame.display.flip()
         clock.tick(FPS)
     pygame.quit()
