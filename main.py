@@ -274,6 +274,9 @@ def save_current_user(username=None):
 
 def init_user_info():
     def create_file():
+        if not os.path.exists(SAVED_USER_INFO_DIR):
+            os.mkdir(SAVED_USER_INFO_DIR)
+
         with open(f'{SAVED_USER_INFO_DIR}/save.dat', 'wb') as file:
             save_current_user('USER_NAME')
             user = load_current_user()
@@ -509,7 +512,7 @@ class Map:
 
     def give_game_objects_lists(self, sprite_group):
         destinations = dict()
-        player_list = []
+        player_list: Player = []
         tank_list = []
         for tile_object in self.tiled_map.objects:
             # Парсинг тени и лавы
@@ -539,7 +542,7 @@ class Map:
             else:
                 rotate_turret = tile_object.properties['rotate_turret']
                 rotate_hull = tile_object.properties['rotate_hull']
-                destination = tile_object.properties['destination']
+                destination = str(tile_object.properties['destination'])
                 respawn = tile_object.properties.get('respawn', False)
                 x, y = int(tile_object.x // TILE_SIZE), int(tile_object.y // TILE_SIZE)
                 init_object_string = f'{tile_object.name.split(" ")[0]}((x, y),' \
@@ -634,8 +637,7 @@ class Game:
 
             damage = 1
             if bullet:
-                if tank == bullet.owner and tank.dict_id_bullets[
-                    'damage_type'] == bullet.damage_type:
+                if tank == bullet.owner and tank.dict_id_bullets['damage_type'] == bullet.damage_type:
                     return
                 if bullet.damage_type == URAN_BULET:
                     damage = 2
@@ -701,52 +703,79 @@ class Game:
             self.bullets.append(tnt_bullet)
 
     def update_controlled_tanks(self):
-        for tank in self.controlled_tanks:
-            tank.update_timers(clock)
-            if tank.is_crashed:
+        for player in self.controlled_tanks:
+            is_movement_key_pressed = False
+
+            player.update_timers(clock)
+            if player.is_crashed:
                 continue
-            unpack_player_coords = self.map.find_player(tank.control_keys)
+            unpack_player_coords = self.map.find_player(player.control_keys)
             if not unpack_player_coords:
-                cur_x, cur_y = next_x, next_y = tank.get_position()
+                cur_x, cur_y = next_x, next_y = player.get_position()
             else:
                 cur_x, cur_y = next_x, next_y = unpack_player_coords
 
-            rotate_turret, rotate_hull = tank.get_rotate()
-            dx, dy = DIRECTION_MOVE_BY_ANGLE[rotate_hull]
-            self.map.map[cur_y][cur_x] = tank
+            rotate_turret, rotate_hull = player.get_rotate()
+            self.map.map[cur_y][cur_x] = player
 
-            if pygame.key.get_pressed()[tank.control_keys[FORWARD]]:
+            if pygame.key.get_pressed()[player.control_keys[FORWARD]]:
+                is_movement_key_pressed = True
+                while player.rotate_hull != 0:
+                    player.set_rotate(90)
+
+            elif pygame.key.get_pressed()[player.control_keys[BACK]]:
+                is_movement_key_pressed = True
+                while player.rotate_hull != 180:
+                    player.set_rotate(90)
+
+            elif pygame.key.get_pressed()[player.control_keys[TURN_RIGHT]]:
+                is_movement_key_pressed = True
+                while player.rotate_hull != 270:
+                    player.set_rotate(90)
+
+            elif pygame.key.get_pressed()[player.control_keys[TURN_LEFT]]:
+                is_movement_key_pressed = True
+                while player.rotate_hull != 90:
+                    player.set_rotate(90)
+
+            if is_movement_key_pressed:
+                dx, dy = DIRECTION_MOVE_BY_ANGLE[player.rotate_hull]
                 next_x, next_y = cur_x + dx, cur_y + dy
                 if self.map.is_free((next_x, next_y)):
-                    if tank.move_forward():
-                        self.map.map[cur_y][cur_x] = \
-                            self.map.get_free_block(cur_x, cur_y)
-                        self.map.map[next_y][next_x] = tank
-            elif pygame.key.get_pressed()[tank.control_keys[BACK]]:
-                next_x, next_y = cur_x - dx, cur_y - dy
-                if self.map.is_free((next_x, next_y)):
-                    if tank.move_back():
-                        self.map.map[cur_y][cur_x] = \
-                            self.map.get_free_block(cur_x, cur_y)
-                        self.map.map[next_y][next_x] = tank
-            if pygame.key.get_pressed()[tank.control_keys[TURN_RIGHT]]:
-                tank.turn_right()
-            elif pygame.key.get_pressed()[tank.control_keys[TURN_LEFT]]:
-                tank.turn_left()
-            if pygame.key.get_pressed()[tank.control_keys[TURN_RIGHT_TURRET]]:
-                tank.turn_turret_right()
-            elif pygame.key.get_pressed()[tank.control_keys[TURN_LEFT_TURRET]]:
-                tank.turn_turret_left()
-            elif pygame.key.get_pressed()[tank.control_keys[SHOOT]]:
-                tank.shoot(self.bullets)
+                    if player.move_forward():
+                        self.map.map[cur_y][cur_x] = self.map.get_free_block(cur_x, cur_y)
+                        self.map.map[next_y][next_x] = player
+            if pygame.key.get_pressed()[player.control_keys[TURN_RIGHT_TURRET]]:
+                if player.rotate_turret == 180:
+                    player.is_turret_rotating_right_up = False
+                elif player.rotate_turret == 0:
+                    player.is_turret_rotating_right_up = True
 
-            self.camera.update(tank)
-            self.camera.apply(tank)
+                if player.is_turret_rotating_right_up:
+                    player.turn_turret_right()
+                else:
+                    player.turn_turret_left()
+            elif pygame.key.get_pressed()[player.control_keys[TURN_LEFT_TURRET]]:
+                if player.rotate_turret == 180:
+                    player.is_turret_rotating_left_up = False
+                elif player.rotate_turret == 0:
+                    player.is_turret_rotating_left_up = True
+
+                if player.is_turret_rotating_left_up:
+                    player.turn_turret_left()
+                else:
+                    player.turn_turret_right()
+
+            elif pygame.key.get_pressed()[player.control_keys[SHOOT]]:
+                player.shoot(self.bullets)
+
+            self.camera.update(player)
+            self.camera.apply(player)
             self.map.camera = self.camera
-            set_player_coords(tank.get_position())
+            set_player_coords(player.get_position())
 
             if (next_x, next_y) == (cur_x, cur_y):
-                tank.play_brake()
+                player.play_brake()
 
     def update_uncontrolled_tanks(self):
         for tank in self.uncontrolled_tanks:

@@ -359,7 +359,7 @@ class Tank(pygame.sprite.Sprite):
         self.orig = pygame.transform.rotate(self.orig, rotate)
         self.animated_hull = pygame.transform.rotate(self.animated_hull, rotate)
         # self.image = pygame.transform.rotate(self.image, rotate)
-        self.set_turret_rotate(rotate)
+        # self.set_turret_rotate(rotate)
 
     def move_forward(self):
         if self.current_move_forward_cooldown <= 0:
@@ -470,7 +470,11 @@ class Player(Tank):
             os.path.join(SOUND_DIR, 'tanks', self.__repr__(), 'brake.mp3'))
         self.sound_dict['turn_hull'] = pygame.mixer.Sound(
             os.path.join(SOUND_DIR, 'tanks', self.__repr__(), 'turn_hull.mp3'))
-        self.team = 'green'        
+        self.team = 'green'
+
+        # Поворт турели
+        self.is_turret_rotating_right_up = False
+        self.is_turret_rotating_left_up = False
 
         self.is_stop = True
 
